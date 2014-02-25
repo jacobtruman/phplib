@@ -42,11 +42,10 @@ class TVShow
 		if(isset($this->episode)) {
 			$ptr = strpos($this->show_string, $this->episode);
 			$this->show = trim(substr($this->show_string, 0, $ptr - 1));
-		}
-		else
-		{
+		} else {
 			$ret_val = false;
 		}
+
 		return $ret_val;
 	}
 
@@ -103,8 +102,14 @@ class TVShow
 
 	private function cleanShowName()
 	{
-		$this->show = str_replace(array("'", '"', "&", "-"), "", $this->show);
+		//$year_pattern = "/\((\d{4})\)/";
+		$year_pattern = "/(\d{4})/";
+		$this->show = str_replace(array("'", '"', "&", "-", "(", ")"), "", $this->show);
 		$this->show = str_replace(array("."), " ", $this->show);
+		// check if the show name contains the year, if so, remove it
+		if(preg_match($year_pattern, $this->show, $matches)) {
+			$this->show = trim(str_replace($matches[0], "", $this->show));
+		}
 	}
 }
 
