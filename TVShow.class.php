@@ -54,9 +54,7 @@ class TVShow
 		preg_match($this->season_pattern, $this->episode, $episode_parts);
 		if(!empty($episode_parts[0])) {
 			$this->season = $episode_parts[0];
-		}
-		else
-		{
+		} else {
 			$ret_val = false;
 		}
 		return $ret_val;
@@ -78,9 +76,7 @@ class TVShow
 	public function __get($name) {
 		if(isset($this->$name)) {
 			$ret_val = $this->$name;
-		}
-		else
-		{
+		} else {
 			$ret_val = false;
 		}
 		return $ret_val;
@@ -90,18 +86,15 @@ class TVShow
 		return $this->valid;
 	}
 
-	private function cleanEpisode()
-	{
+	private function cleanEpisode() {
 		$this->episode = (int)str_replace(array("S", "E", "x"), "", $this->episode);
 	}
 
-	private function cleanSeason()
-	{
+	private function cleanSeason() {
 		$this->season = (int)str_replace(array("S"), "", $this->season);
 	}
 
-	private function cleanShowName()
-	{
+	private function cleanShowName() {
 		//$year_pattern = "/\((\d{4})\)/";
 		$year_pattern = "/(\d{4})/";
 		$this->show = str_replace(array("'", '"', "&", "-", "(", ")"), "", $this->show);
