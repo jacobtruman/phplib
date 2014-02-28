@@ -2,8 +2,8 @@
 
 class TVShow
 {
-	private $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|[0-9]{1,2}[0-9]{1,2}/';
-	private $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}/';
+	private $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|\.[0-9]{1,2}[0-9]{1,2}/';
+	private $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}(?<![0-9]{2})/';
 	private $episode;
 	private $season;
 	private $show;
@@ -66,12 +66,10 @@ class TVShow
 
 	private function getEpisode() {
 		$ret_val = true;
-		preg_match($this->episode_pattern, $this->show_string, $title_parts);
+		preg_match_all($this->episode_pattern, $this->show_string, $title_parts);
 		if(!empty($title_parts[0])) {
-			$this->episode = $title_parts[0];
-		}
-		else
-		{
+			$this->episode = str_replace(".", "", end($title_parts[0]));
+		} else {
 			$ret_val = false;
 		}
 		return $ret_val;
