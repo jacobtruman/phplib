@@ -2,13 +2,14 @@
 
 class TVShow
 {
-	private $episode_pattern = '/S[0-9]{1,2}E[0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}/';
-	private $season_pattern = '/S[0-9]{1,2}/';
+	private $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|[0-9]{1,2}[0-9]{1,2}/';
+	private $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}/';
 	private $episode;
 	private $season;
 	private $show;
 	private $show_string;
 	private $valid;
+	private $invalid_reason;
 
 	/**
 	* Initializes the object
@@ -21,14 +22,17 @@ class TVShow
 
 		if(!$this->getEpisode()) {
 			$this->valid = false;
+			$this->invalid_reason = "Episode is false: ".$this->show_string;
 		}
 
 		if(!$this->getSeason()) {
 			$this->valid = false;
+			$this->invalid_reason = "Season is false: ".$this->show_string;
 		}
 
 		if(!$this->getShow()) {
 			$this->valid = false;
+			$this->invalid_reason = "Show is false: ".$this->show_string;
 		}
 
 		// cleanup show and episode strings
@@ -86,12 +90,16 @@ class TVShow
 		return $this->valid;
 	}
 
+	public function getInvalidReason() {
+		return $this->invalid_reason;
+	}
+
 	private function cleanEpisode() {
-		$this->episode = (int)str_replace(array("S", "E", "x"), "", $this->episode);
+		$this->episode = (int)str_replace(array("S", "s", "E", "e", "x"), "", $this->episode);
 	}
 
 	private function cleanSeason() {
-		$this->season = (int)str_replace(array("S"), "", $this->season);
+		$this->season = (int)str_replace(array("S", "s"), "", $this->season);
 	}
 
 	private function cleanShowName() {
@@ -103,6 +111,7 @@ class TVShow
 		if(preg_match($year_pattern, $this->show, $matches)) {
 			$this->show = trim(str_replace($matches[0], "", $this->show));
 		}
+		$this->show = ucwords($this->show);
 	}
 }
 
