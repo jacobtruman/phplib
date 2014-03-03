@@ -25,8 +25,6 @@ Initializes logger object based on file provided. If a path is not included in t
 #### addToLog(msg)
 Prepends date/time ("Y-m-d h:i:s") to value in msg, prints it and adds it to logfile.
 
-[a relative link] (/README.md#loggerclassphp)
-
 ## TVShow.class.php
 ### Usage
 
