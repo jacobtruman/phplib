@@ -24,7 +24,7 @@ class ImgCompare {
 		$this->verbose = $verbose;
 		$this->db = new DBConn();
 		$date = date("Y-m-d");
-		$this->log_file = "/mine/scripts/logs/img_compare_{$date}.log";
+		$this->log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
 	}
 
 	public function findDuplicates() {
