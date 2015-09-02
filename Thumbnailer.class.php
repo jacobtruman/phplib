@@ -27,6 +27,10 @@ class Thumbnailer {
 	}
 
 	public function generateThumb($file) {
+		if(stristr($file, $this->thumb_base)) {
+			$this->logger->addToLog("File provided is in the thumbnail dir: [{$file}]");
+			return false;
+		}
 		$ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 		$thumb_dir = $this->getThumbDir($file);
 		$file_parts = explode("/", $file);
