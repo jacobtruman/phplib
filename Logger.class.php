@@ -1,19 +1,19 @@
 <?php
 
-class Logger
-{
-	private $log_dir;
+class Logger {
 
-	public function __construct($file) {
+	protected $log_dir;
+	protected $silent;
+
+	public function __construct($file, $silent = true) {
 		$this->file = $file;
+		$this->silent = $silent;
 		$file_parts = explode("/", $file);
 		if(count($file_parts) > 1) {
 			$this->filename = end($file_parts);
 			unset($file_parts[count($file_parts) - 1]);
 			$this->log_dir = implode("/", $file_parts);
-		}
-		else
-		{
+		} else {
 			$this->log_dir = dirname(__FILE__);
 		}
 
@@ -25,7 +25,9 @@ class Logger
 
 	public function addToLog($msg) {
 		$msg = date("Y-m-d h:i:s")."\t".$msg.PHP_EOL;
-		echo $msg;
+		if(!$this->silent) {
+			echo $msg;
+		}
 		file_put_contents($this->file, $msg, FILE_APPEND);
 	}
 }

@@ -1,17 +1,20 @@
 <?php
 
+require_once("Logger.class.php");
+
 class Thumbnailer {
 
 	protected $base_dir;
 	protected $thumb_base;
-	protected $log_file;
+	protected $logger;
 
 	public function __construct($base_dir) {
 		$this->base_dir = $base_dir;
 		$this->thumb_base = $this->base_dir."/thumbnails";
 
 		$date = date("Y-m-d");
-		$this->log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
+		$log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
+		$this->logger = new Logger($log_file);
 	}
 
 	public function getThumbDir($file) {
@@ -32,7 +35,7 @@ class Thumbnailer {
 		$thumbnail = $thumb_dir . "/" . $file_name;
 		if (!file_exists($thumbnail)) {
 			if (file_exists($file)) {
-				$this->log("Generating thumbnail from [{$file}] to [{$thumbnail}]");
+				$this->logger->addToLog("Generating thumbnail from [{$file}] to [{$thumbnail}]");
 				list($width, $height) = getimagesize($file);
 
 				$new_height = 150;
@@ -52,13 +55,13 @@ class Thumbnailer {
 				// Load the images
 				$thumb = imagecreatetruecolor($new_width, $new_height);
 				if (!$thumb) {
-					$this->log("imagecreatetruecolor failed");
+					$this->logger->addToLog("imagecreatetruecolor failed");
 
 					return false;
 				}
 				$source = $methods["imagecreatefrom"]($file);
 				if (!$source) {
-					$this->log("{$methods["imagecreatefrom"]} failed");
+					$this->logger->addToLog("{$methods["imagecreatefrom"]} failed");
 
 					return false;
 				}
@@ -67,27 +70,21 @@ class Thumbnailer {
 				if (imagecopyresized($thumb, $source, 0, 0, 0, 0, $new_width, $new_height, $width, $height)) {
 					// Save the new file to the location specified by $thumbnail
 					if (!$methods["image"]($thumb, $thumbnail, $quality)) {
-						$this->log("{$methods["image"]} FAILED to generate thumbnail... [{$thumbnail}]");
+						$this->logger->addToLog("{$methods["image"]} FAILED to generate thumbnail... [{$thumbnail}]");
 
 						return false;
 					}
 				} else {
-					$this->log("imagecopyresized failed");
+					$this->logger->addToLog("imagecopyresized failed");
 
 					return false;
 				}
 			} else {
-				$this->log("File [{$file}] does not exist...");
+				$this->logger->addToLog("File [{$file}] does not exist...");
 				return false;
 			}
 		}
 		return true;
-	}
-
-	protected function log($msg) {
-		$msg = date("Y-m-d H:i:s")."\t".$msg.PHP_EOL;
-		//echo $msg;
-		file_put_contents($this->log_file, $msg, FILE_APPEND);
 	}
 }
 

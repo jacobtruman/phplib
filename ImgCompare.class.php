@@ -1,6 +1,7 @@
 <?php
 
 require_once("DBConn.class.php");
+require_once("Logger.class.php");
 
 class ImgCompare {
 
@@ -11,6 +12,7 @@ class ImgCompare {
 	protected $verbose = false;
 	protected $cache = NULL;
 	protected $size = 0;
+	protected $logger;
 
 	public function __construct($dir = NULL, $extensions = array(), $filters = NULL, $verbose = false) {
 		if($dir === NULL) {
@@ -24,7 +26,8 @@ class ImgCompare {
 		$this->verbose = $verbose;
 		$this->db = new DBConn();
 		$date = date("Y-m-d");
-		$this->log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
+		$log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
+		$this->logger = new Logger($log_file);
 	}
 
 	public function findDuplicates() {
@@ -32,8 +35,8 @@ class ImgCompare {
 		if(count($duplicates) && $this->verbose) {
 			print_r($duplicates);
 		}
-		$this->log(count($duplicates)." duplicates found");
-		$this->log($this->size." Bytes");
+		$this->logger->addToLog(count($duplicates)." duplicates found");
+		$this->logger->addToLog($this->size." Bytes");
 	}
 
 	public function getDuplicates() {
@@ -68,32 +71,32 @@ class ImgCompare {
 		}
 		$sql .= " GROUP BY {$unique_column} HAVING count(*) > 1";
 		if($this->verbose) {
-			$this->log($sql);
+			$this->logger->addToLog($sql);
 		}
 
 		$result = $this->db->query($sql);
 		$this->size = 0;
-		$this->log($result->num_rows." Rows to process");
+		$this->logger->addToLog($result->num_rows." Rows to process");
 		$i = 1;
 		while ($row = $result->fetch_array()) {
 			$pre_log = $i++." / ".$result->num_rows." :: ";
 			list($hash, $count) = $row;
 			if($this->verbose) {
-				$this->log($pre_log.$hash." :: ".$count);
+				$this->logger->addToLog($pre_log.$hash." :: ".$count);
 			}
 			$sql = "SELECT path FROM {$this->table} WHERE {$unique_column} = '{$hash}'";
 			if($this->verbose) {
-				$this->log($pre_log.$sql);
+				$this->logger->addToLog($pre_log.$sql);
 			}
 			$res = $this->db->query($sql);
 			while ($row2 = $res->fetch_array()) {
 				list($path) = $row2;
 				if(!$this->fileExists($path)) {
 					// remove the record from the db
-					$this->log($pre_log."Deleting record for {$path}");
+					$this->logger->addToLog($pre_log."Deleting record for {$path}");
 					$sql = "DELETE FROM {$this->table} WHERE path = '{$this->db->real_escape_string($path)}'";
 					if($this->verbose) {
-						$this->log($pre_log.$sql);
+						$this->logger->addToLog($pre_log.$sql);
 					}
 					$this->db->query($sql);
 				} else {
@@ -110,7 +113,7 @@ class ImgCompare {
 
 	public function buildDB() {
 		if($this->verbose) {
-			$this->log("Building DB");
+			$this->logger->addToLog("Building DB");
 		}
 		$this->processDir($this->dir);
 	}
@@ -141,7 +144,7 @@ class ImgCompare {
 		while ($row = $result->fetch_assoc()) {
 			if(!$this->fileExists($row['path'])) {
 				$dsql = "DELETE FROM {$this->table} WHERE path = '{$this->db->real_escape_string($row['path'])}'";
-				$this->log($dsql);
+				$this->logger->addToLog($dsql);
 				$this->db->query($dsql);
 			}
 		}
@@ -167,7 +170,7 @@ class ImgCompare {
 			$files = glob($dir . "/*.{" . implode(",", $this->getExtensionsPattern()) . "}", GLOB_BRACE);
 			if($this->verbose) {
 				("Processing dir {$dir}");
-				$this->log(count($files)." files found");
+				$this->logger->addToLog(count($files)." files found");
 			}
 			$this->processFiles($files);
 		}
@@ -188,16 +191,16 @@ class ImgCompare {
 					$signature = $image->getImageSignature();
 					$hash = $this->db->real_escape_string(md5_file($file));
 					$file = $this->db->real_escape_string($file);
-					$this->log($hash . " :: " . $signature . " :: " . $file);
+					$this->logger->addToLog($hash . " :: " . $signature . " :: " . $file);
 					$sql = "INSERT INTO {$this->table} SET path = '{$this->db->real_escape_string($file)}', hash = '{$hash}', signature = '{$signature}' ON DUPLICATE KEY UPDATE hash = '{$hash}', signature = '{$signature}'";
 					if ($this->verbose) {
-						$this->log($sql);
+						$this->logger->addToLog($sql);
 					}
 					$this->db->query($sql);
 				}
 			} else {
 				if($this->verbose) {
-					$this->log("{$file} already processed");
+					$this->logger->addToLog("{$file} already processed");
 				}
 			}
 		}
@@ -217,11 +220,11 @@ class ImgCompare {
 						$pass = true;
 						if ($this->verbose) {
 							if ($this->verbose) {
-								$this->log("Path {$file} matches include filter " . $filter);
+								$this->logger->addToLog("Path {$file} matches include filter " . $filter);
 							}
 						} else {
 							if ($this->verbose) {
-								$this->log("Path {$file} does not match include filter " . $filter);
+								$this->logger->addToLog("Path {$file} does not match include filter " . $filter);
 							}
 						}
 					}
@@ -236,11 +239,11 @@ class ImgCompare {
 						$pass = false;
 						if($this->verbose) {
 							if($this->verbose) {
-								$this->log("Path {$file} matches exclude filter " . $filter);
+								$this->logger->addToLog("Path {$file} matches exclude filter " . $filter);
 							}
 						} else {
 							if($this->verbose) {
-								$this->log("Path {$file} does not match exclude filter " . $filter);
+								$this->logger->addToLog("Path {$file} does not match exclude filter " . $filter);
 							}
 						}
 					}
@@ -250,10 +253,10 @@ class ImgCompare {
 			}
 
 			if($pass && $this->verbose) {
-				$this->log("Path {$file} matches all filters");
+				$this->logger->addToLog("Path {$file} matches all filters");
 			}
 		} else {
-			$this->log("No filters defined");
+			$this->logger->addToLog("No filters defined");
 		}
 
 		return $pass;
@@ -293,12 +296,6 @@ class ImgCompare {
 
 	protected function getExif($file) {
 		return exif_read_data($file);
-	}
-
-	protected function log($msg) {
-		$msg = date("Y-m-d H:i:s")."\t".$msg.PHP_EOL;
-		//echo $msg;
-		file_put_contents($this->log_file, $msg, FILE_APPEND);
 	}
 }
 
