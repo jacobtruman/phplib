@@ -7,7 +7,8 @@ class ImgCompare {
 
 	public $dir;
 	protected $db;
-	protected $table = "images";
+	static protected $_table = "images";
+	protected $table;
 	protected $filters;
 	protected $verbose = false;
 	protected $cache = NULL;
@@ -24,10 +25,23 @@ class ImgCompare {
 		$this->extensions = $extensions;
 		$this->filters = $filters;
 		$this->verbose = $verbose;
-		$this->db = new DBConn();
+		$this->db = self::getDB();
+		$this->table = self::getTable();
+		$this->logger = self::getLogger();
+	}
+
+	protected static function getDB() {
+		return new DBConn();
+	}
+
+	protected function getTable() {
+		return self::$_table;
+	}
+
+	protected static function getLogger($silent = true) {
 		$date = date("Y-m-d");
 		$log_file = "/mine/scripts/logs/".__CLASS__."_{$date}.log";
-		$this->logger = new Logger($log_file);
+		return new Logger($log_file, $silent);
 	}
 
 	public function findDuplicates() {
@@ -42,7 +56,7 @@ class ImgCompare {
 	public function getDuplicates() {
 		$duplicates = array();
 		$unique_column = "signature";
-		$sql = "SELECT {$unique_column}, count(*) FROM {$this->table}";
+		$sql = "SELECT {$unique_column}, count(*) FROM {$this->table} WHERE signature IN (SELECT {$unique_column} FROM {$this->table}";
 		if($this->filters !== NULL && is_array($this->filters)) {
 			$wheres = array();
 			foreach($this->filters as $column=>$value) {
@@ -69,7 +83,7 @@ class ImgCompare {
 				$sql .= " WHERE " . implode(" AND ", $wheres);
 			}
 		}
-		$sql .= " GROUP BY {$unique_column} HAVING count(*) > 1";
+		$sql .= ") GROUP BY {$unique_column} HAVING count(*) > 1 LIMIT 1000";
 		if($this->verbose) {
 			$this->logger->addToLog($sql);
 		}
@@ -104,7 +118,7 @@ class ImgCompare {
 					$this->size += filesize($path);
 				}
 			}
-			if(count($duplicates[ $hash ]) <= 1) {
+			if(isset($duplicates[ $hash ]) && count($duplicates[ $hash ]) <= 1) {
 				unset($duplicates[ $hash ]);
 			}
 		}
@@ -118,13 +132,28 @@ class ImgCompare {
 		$this->processDir($this->dir);
 	}
 
-	protected function buildCache($dir) {
-		$this->cache = NULL;
-		$sql = "SELECT * FROM {$this->table} WHERE path LIKE '{$this->db->real_escape_string($dir)}%'";
-		$result = $this->db->query($sql);
+	protected static function _getCache($dir = NULL) {
+		$cache = NULL;
+		$db = self::getDB();
+		$sql = "SELECT * FROM ".self::getTable();
+		if($dir !== NULL) {
+			$sql .= " WHERE path LIKE '{$db->real_escape_string($dir)}%'";
+		}
+		$result = $db->query($sql);
 		while ($row = $result->fetch_assoc()) {
 			$key = md5(stripslashes($row['path']));
-			$this->cache[$key] = $row;
+			$cache[$key] = $row;
+		}
+		return $cache;
+	}
+
+	public static function getCache($dir = NULL) {
+		return self::_getCache($dir);
+	}
+
+	protected function buildCache($dir = NULL) {
+		if($this->cache === NULL) {
+			$this->cache = self::_getCache($dir);
 		}
 	}
 
@@ -136,6 +165,10 @@ class ImgCompare {
 			}
 		}
 		return false;
+	}
+
+	public static function findFileDuplicates($file) {
+
 	}
 
 	public function cleanDB() {
@@ -204,6 +237,46 @@ class ImgCompare {
 				}
 			}
 		}
+	}
+
+	public static function processFile($file) {
+		$image = new Imagick($file);
+		$signature = $image->getImageSignature();
+		if(!self::isInDB($file, $signature)) {
+			$db = self::getDB();
+			$table = self::getTable();
+			$logger = self::getLogger(false);
+			$hash = $db->real_escape_string(md5_file($file));
+			$file = $db->real_escape_string($file);
+			$logger->addToLog($hash . " :: " . $signature . " :: " . $file);
+			$sql = "INSERT INTO {$table} SET path = '{$db->real_escape_string($file)}', hash = '{$hash}', signature = '{$signature}' ON DUPLICATE KEY UPDATE hash = '{$hash}', signature = '{$signature}'";
+			$logger->addToLog($sql);
+			$db->query($sql);
+		}
+	}
+
+	public static function isInDB($file, $signature = NULL) {
+		$in_db = false;
+		$db = self::getDB();
+		$table = self::getTable();
+		$logger = self::getLogger(false);
+		if($signature === NULL) {
+			$image = new Imagick($file);
+			$signature = $image->getImageSignature();
+		}
+
+		$sql = "SELECT * FROM {$table} WHERE signature = '{$signature}'"; // AND path != '".$db->real_escape_string($file)."'";
+		$result = $db->query($sql);
+		$logger->addToLog($result->num_rows." Rows found");
+		while ($row = $result->fetch_array()) {
+			if($row['path'] == $db->real_escape_string($file)) {
+				$in_db = true;
+				$logger->addToLog("This file ({$file}) is already recorded");
+			} else {
+				$logger->addToLog("This file ({$file}) is a duplicate of {$row['path']}");
+			}
+		}
+		return $in_db;
 	}
 
 	protected function checkFilters($file, $types = NULL) {

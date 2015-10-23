@@ -2,12 +2,14 @@
 
 require_once("Logger.class.php");
 require_once("DBConn.class.php");
+require_once("ImgCompare.class.php");
 
 class Photo {
 
 	protected $yearmonth_pattern = '/[0-9]{4}\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i';
 	protected $file;
 	protected $exif;
+	protected $signature;
 	protected $path;
 	protected $dry_run;
 	protected $db;
@@ -36,6 +38,7 @@ class Photo {
 		}
 		$this->initLog();
 		$this->getExif();
+		$this->getSignature();
 	}
 
 	protected function initLog() {
@@ -48,6 +51,11 @@ class Photo {
 		$this->exif = exif_read_data($this->file);
 	}
 
+	protected function getSignature() {
+		$image = new Imagick($this->file);
+		$this->signature = $image->getImageSignature();
+	}
+
 	public function getDateTimeFromExif() {
 		return isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : $this->exif['DateTime']);
 	}
@@ -58,6 +66,9 @@ class Photo {
 			$ts = strtotime($datetime);
 			if(!empty($ts)) {
 				$new_file = $this->getNewFilename($ts);
+				ImgCompare::isInDB($new_file, $this->signature);
+				var_dump($this->file);
+				exit;
 				if($new_file !== NULL) {
 					$this->logger->addToLog($this->log_prefix."Renaming file " . $this->file . " to " . $new_file);
 					$this->addExifNote("Renamed from " . $this->file . " to " . $new_file);
@@ -134,24 +145,25 @@ class Photo {
 			mkdir($path, 0777, true);
 		}
 
-		$this->logger->addToLog($this->log_prefix."Checking file: {$this->file} against {$path}/{$filename}");
-		if($this->isDuplicate($this->file, $path."/".$filename)) {
+		$file = $path."/".$filename;
+		$this->logger->addToLog($this->log_prefix."Checking file: {$this->file} against {$file}");
+		if($this->isDuplicate($this->file, $file)) {
 			// do nothing with the image
 			$this->logger->addToLog($this->log_prefix."duplicate image, skipping");
 			return NULL;
-		} else if(file_exists($path."/".$filename)) {
+		} else if(!$this->fileExists($file)) {
 			$this->logger->addToLog($this->log_prefix."image name exists, incrementing image time and trying again");
 			$this->addToDateTimeTaken(1);
 			return $this->getNewFilename(++$ts);
 		} else {
-			return $path."/".$filename;
+			return $file;
 		}
 	}
 
 	protected function isDuplicate($source_file, $dest_file) {
 		// check the file with the same name, and the db
 		$source_hash = $this->getFileHash($source_file);
-		if(file_exists($dest_file)) {
+		if(!$this->fileExists($dest_file)) {
 			$dest_hash = $this->getFileHash($dest_file);
 			if($source_hash == $dest_hash) {
 				if($this->verbose) {
@@ -170,6 +182,19 @@ class Photo {
 				}
 				return true;
 			}
+		}
+		return false;
+	}
+
+	protected function fileExists(&$file) {
+		if(file_exists($file)) {
+			return true;
+		} else if(file_exists(addslashes($file))) {
+			$file = addslashes($file);
+			return true;
+		} else if(file_exists(stripslashes($file))){
+			$file = stripslashes($file);
+			return true;
 		}
 		return false;
 	}
