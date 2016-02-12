@@ -242,7 +242,8 @@ class ImgCompare {
 	public static function processFile($file) {
 		$image = new Imagick($file);
 		$signature = $image->getImageSignature();
-		if(!self::isInDB($file, $signature)) {
+		list($in_db, $records) = self::isInDB($file, $signature);
+		if(!$in_db) {
 			$db = self::getDB();
 			$table = self::getTable();
 			$logger = self::getLogger(false);
@@ -257,6 +258,7 @@ class ImgCompare {
 
 	public static function isInDB($file, $signature = NULL) {
 		$in_db = false;
+		$records = array();
 		$db = self::getDB();
 		$table = self::getTable();
 		$logger = self::getLogger(false);
@@ -271,12 +273,13 @@ class ImgCompare {
 		while ($row = $result->fetch_array()) {
 			if($row['path'] == $db->real_escape_string($file)) {
 				$in_db = true;
+				$records[] = $row;
 				$logger->addToLog("This file ({$file}) is already recorded");
 			} else {
 				$logger->addToLog("This file ({$file}) is a duplicate of {$row['path']}");
 			}
 		}
-		return $in_db;
+		return array($in_db, $records);
 	}
 
 	protected function checkFilters($file, $types = NULL) {

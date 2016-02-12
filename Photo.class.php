@@ -66,8 +66,10 @@ class Photo {
 			$ts = strtotime($datetime);
 			if(!empty($ts)) {
 				$new_file = $this->getNewFilename($ts);
-				ImgCompare::isInDB($new_file, $this->signature);
-				var_dump($this->file);
+				list($in_db, $records) = ImgCompare::isInDB($new_file, $this->signature);
+				//var_dump($this->file);
+				var_dump($in_db);
+				var_dump($records);
 				exit;
 				if($new_file !== NULL) {
 					$this->logger->addToLog($this->log_prefix."Renaming file " . $this->file . " to " . $new_file);
@@ -146,6 +148,13 @@ class Photo {
 		}
 
 		$file = $path."/".$filename;
+
+		list($in_db, $records) = ImgCompare::isInDB($file, $this->signature);
+		//var_dump($this->file);
+		var_dump($in_db);
+		var_dump($records);
+		exit;
+
 		$this->logger->addToLog($this->log_prefix."Checking file: {$this->file} against {$file}");
 		if($this->isDuplicate($this->file, $file)) {
 			// do nothing with the image
