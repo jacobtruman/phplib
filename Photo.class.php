@@ -10,30 +10,31 @@ class Photo {
 	protected $file;
 	protected $exif;
 	protected $signature;
-	protected $path;
 	protected $dest_path;
 	protected $dry_run;
 	protected $db;
 	protected $table = "images";
 	protected $log_prefix = "";
 	protected $trash_dir = "/mine/ImageTrash";
+	protected $trash = false;
 
 	/**
 	 * Initializes the object
 	 *
-	 * @param $path                 The destination base path
-	 * @param $file                 The file location of the photo
-	 * @param null $base_path       The source base path
+	 * @param $source_file          The file location of the photo
+	 * @param null $dest_path       The dest base path
 	 * @param bool|false $dry_run
+	 * @param bool|false $verbose
+	 * @param bool|false $trash
 	 * @param null $logger
 	 */
-	public function __construct($path, $file, $base_path = NULL, $dry_run = false, $verbose = false, $logger = NULL) {
-		$this->path = $path;
-		$this->dest_path = $base_path;
-		$this->file = $file;
+	public function __construct($source_file, $dest_path = NULL, $dry_run = false, $verbose = false, $trash = false, $logger = NULL) {
+		$this->dest_path = $dest_path;
+		$this->file = $source_file;
 		$this->logger = $logger;
 		$this->dry_run = $dry_run;
 		$this->verbose = $verbose;
+		$this->trash = $trash;
 		$this->db = new DBConn();
 		if($this->dry_run) {
 			$this->log_prefix = "** DRY RUN ** ";
@@ -63,7 +64,7 @@ class Photo {
 	}
 
 	public function renameFile() {
-		list($in_db, $records) = ImgCompare::isInDB($this->file, $this->signature, "images2");
+		list($in_db, $records) = ImgCompare::isInDB($this->file, $this->signature, $this->table);
 		if(!$in_db) {
 			$datetime = $this->getDateTimeFromExif();
 			if (!empty($datetime)) {
@@ -79,7 +80,7 @@ class Photo {
 								$this->clearExifNote();
 							} else {
 								$this->file = $new_file;
-								ImgCompare::processFile($this->file);
+								ImgCompare::processFile($this->file, $this->table);
 							}
 						}
 					} else {
@@ -132,11 +133,8 @@ class Photo {
 		}
 	}
 
-	public function setDestPath($path) {
-		if(!is_dir($path)) {
-			mkdir($path, 0777, true);
-		}
-		$this->dest_path = $path;
+	public function setTable($table) {
+		$this->table = $table;
 	}
 
 	protected function getNewFilename($ts) {
@@ -145,9 +143,6 @@ class Photo {
 		$year = date("Y", $ts);
 		$month = date("M", $ts);
 		$path = $this->dest_path;
-		if ($path === NULL) {
-			$path = $this->path;
-		}
 		preg_match($this->yearmonth_pattern, $path, $matches);
 		if (!count($matches)) {
 			$path .= "/" . $year . "/" . $month;
@@ -201,7 +196,7 @@ class Photo {
 		}
 
 		$this->logger->addToLog($this->log_prefix . "Renaming file " . $this->file . " to " . $dest_file);
-		if(!$this->dry_run) {
+		if(!$this->dry_run && $this->trash) {
 			$ret_val = rename($this->file, $dest_file);
 		}
 		return $ret_val;
