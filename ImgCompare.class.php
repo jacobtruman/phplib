@@ -34,8 +34,12 @@ class ImgCompare {
 		return new DBConn();
 	}
 
-	protected function getTable() {
+	protected static function getTable() {
 		return self::$_table;
+	}
+
+	protected static function setTable($table) {
+		self::$_table = $table;
 	}
 
 	protected static function getLogger($silent = true) {
@@ -256,7 +260,10 @@ class ImgCompare {
 		}
 	}
 
-	public static function isInDB($file, $signature = NULL) {
+	public static function isInDB($file, $signature = NULL, $table = NULL) {
+		if($table !== NULL) {
+			self::setTable($table);
+		}
 		$in_db = false;
 		$records = array();
 		$db = self::getDB();
@@ -268,16 +275,18 @@ class ImgCompare {
 		}
 
 		$sql = "SELECT * FROM {$table} WHERE signature = '{$signature}'"; // AND path != '".$db->real_escape_string($file)."'";
-		$result = $db->query($sql);
-		$logger->addToLog($result->num_rows." Rows found");
-		while ($row = $result->fetch_array()) {
-			if($row['path'] == $db->real_escape_string($file)) {
-				$in_db = true;
-				$records[] = $row;
-				$logger->addToLog("This file ({$file}) is already recorded");
-			} else {
-				$logger->addToLog("This file ({$file}) is a duplicate of {$row['path']}");
+		if($result = $db->query($sql)) {
+			$logger->addToLog($result->num_rows." Rows found");
+			while ($row = $result->fetch_assoc()) {
+				if ($row['path'] == $db->real_escape_string($file)) {
+					$in_db = true;
+					$records[] = $row;
+					$logger->addToLog("This file ({$file}) is already recorded");
+				} else {
+					$logger->addToLog("This file ({$file}) is a duplicate of {$row['path']}");
+				}
 			}
+			$result->free();
 		}
 		return array($in_db, $records);
 	}
