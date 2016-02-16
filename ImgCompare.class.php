@@ -224,16 +224,22 @@ class ImgCompare {
 		foreach($files as $file) {
 			if(!$this->inCache($file)) {
 				if ($this->checkFilters($file, array("file", "file_exclude"))) {
-					$image = new Imagick($file);
-					$signature = $image->getImageSignature();
-					$hash = $this->db->real_escape_string(md5_file($file));
-					$file = $this->db->real_escape_string($file);
-					$this->logger->addToLog($hash . " :: " . $signature . " :: " . $file);
-					$sql = "INSERT INTO {$this->table} SET path = '{$this->db->real_escape_string($file)}', hash = '{$hash}', signature = '{$signature}' ON DUPLICATE KEY UPDATE hash = '{$hash}', signature = '{$signature}'";
-					if ($this->verbose) {
-						$this->logger->addToLog($sql);
+					try {
+						$image = new Imagick($file);
+						$signature = $image->getImageSignature();
+						$hash = $this->db->real_escape_string(md5_file($file));
+						$file = $this->db->real_escape_string($file);
+						$this->logger->addToLog($hash . " :: " . $signature . " :: " . $file);
+						$sql = "INSERT INTO {$this->table} SET path = '{$this->db->real_escape_string($file)}', hash = '{$hash}', signature = '{$signature}' ON DUPLICATE KEY UPDATE hash = '{$hash}', signature = '{$signature}'";
+						if ($this->verbose) {
+							$this->logger->addToLog($sql);
+						}
+						$this->db->query($sql);
+					} catch (Exception $e) {
+						//throw new Exception("File {$file} is corrupt and probably should be deleted\n".$e->getMessage());
+						$this->logger->addToLog("File {$file} is corrupt and probably should be deleted\n".$e->getMessage());
+						continue;
 					}
-					$this->db->query($sql);
 				}
 			} else {
 				if($this->verbose) {
