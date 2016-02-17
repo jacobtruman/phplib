@@ -44,6 +44,11 @@ class Photo {
 		$this->getSignature();
 	}
 
+	public function addProgressToLog($count, $num) {
+		$perc = $this->getProgress($count, $num);
+		$this->log_prefix .= "{$num} / {$count}: {$perc}% :: ";
+	}
+
 	protected function initLog() {
 		if($this->logger === NULL) {
 			$this->logger = new Logger("/mine/logs/Photos_".date("Y-m-d").".log", !$this->verbose);
@@ -200,6 +205,10 @@ class Photo {
 			$ret_val = rename($this->file, $dest_file);
 		}
 		return $ret_val;
+	}
+
+	protected function getProgress($count, $num) {
+		return round((($num / $count) * 100), 2);
 	}
 }
 
