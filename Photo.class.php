@@ -208,7 +208,7 @@ class Photo {
 	}
 
 	protected function getProgress($count, $num) {
-		return round((($num / $count) * 100), 2);
+		return number_format(round((($num / $count) * 100), 2), 2);
 	}
 }
 
