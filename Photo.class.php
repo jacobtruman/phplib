@@ -30,7 +30,7 @@ class Photo {
 	 */
 	public function __construct($source_file, $dest_path = NULL, $dry_run = false, $verbose = false, $trash = false, $logger = NULL) {
 		$this->dest_path = $dest_path;
-		$this->file = $source_file;
+		$this->file = $this->cleanPath($source_file);
 		$this->logger = $logger;
 		$this->dry_run = $dry_run;
 		$this->verbose = $verbose;
@@ -118,7 +118,7 @@ class Photo {
 	public function changeDateTimeTaken($ts = NULL) {
 		if(!$this->dry_run) {
 			if ($ts !== null) {
-				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . addslashes($this->file));
+				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file));
 				$this->getExif();
 			}
 		}
@@ -126,14 +126,14 @@ class Photo {
 
 	public function addExifNote($note) {
 		if(!$this->dry_run) {
-			exec("jhead -cl \"" . addslashes($note) . "\" " . addslashes($this->file));
+			exec("jhead -cl \"" . addslashes($note) . "\" " . $this->cleanFilename($this->file));
 			$this->getExif();
 		}
 	}
 
 	public function clearExifNote() {
 		if(!$this->dry_run) {
-			exec("jhead -dc " . addslashes($this->file));
+			exec("jhead -dc " . $this->cleanFilename($this->file));
 			$this->getExif();
 		}
 	}
@@ -153,7 +153,7 @@ class Photo {
 			$path .= "/" . $year . "/" . $month;
 		}
 		// cleanup the path a little
-		$path = str_replace("//", "/", $path);
+		$path = $this->cleanPath($path);
 		if (!is_dir($path)) {
 			$this->logger->addToLog($this->log_prefix . "Creating directory: " . $path);
 			mkdir($path, 0777, true);
@@ -200,15 +200,26 @@ class Photo {
 			mkdir($dest_dir, 0777, true);
 		}
 
-		$this->logger->addToLog($this->log_prefix . "Renaming file " . $this->file . " to " . $dest_file);
+		$this->logger->addToLog($this->log_prefix . "Moving file to trash: " . $this->file . " to " . $dest_file);
 		if(!$this->dry_run && $this->trash) {
 			$ret_val = rename($this->file, $dest_file);
 		}
 		return $ret_val;
 	}
 
+	protected function cleanPath($path) {
+		while(strstr($path, "//")) {
+			$path = str_replace("//", "/", $path);
+		}
+		return $path;
+	}
+
 	protected function getProgress($count, $num) {
 		return number_format(round((($num / $count) * 100), 2), 2);
+	}
+
+	protected function cleanFilename($filename) {
+		return addcslashes($filename, ' ,(,)\',"');
 	}
 }
 

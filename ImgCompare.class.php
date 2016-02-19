@@ -293,9 +293,9 @@ class ImgCompare {
 		if($result = $db->query($sql)) {
 			$logger->addToLog($result->num_rows." Rows found");
 			while ($row = $result->fetch_assoc()) {
+				$in_db = true;
+				$records[] = $row;
 				if ($row['path'] == $db->real_escape_string($file)) {
-					$in_db = true;
-					$records[] = $row;
 					$logger->addToLog("This file ({$file}) is already recorded");
 				} else {
 					$logger->addToLog("This file ({$file}) is a duplicate of {$row['path']}");
