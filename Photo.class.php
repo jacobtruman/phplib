@@ -7,7 +7,8 @@ require_once("ImgCompare.class.php");
 class Photo {
 
 	protected $yearmonth_pattern = '/[0-9]{4}\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i';
-	protected $datetime_pattern = '/[0-9]{8}_[0-9]{6}/i';
+	protected $datetime_pattern = '/[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}\'[0-9]{2}\'[0-9]{2}|[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}|[0-9]{8}_[0-9]{6}/i';
+	protected $datetimenosec_pattern = '/[0-9]{8}-[0-9]{4}/i';
 	protected $file;
 	protected $exif;
 	protected $signature;
@@ -69,8 +70,14 @@ class Photo {
 		$date = isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : isset($this->exif['DateTime']) ? $this->exif['DateTime'] : NULL);
 		if($date === NULL) {
 			if (preg_match($this->datetime_pattern, $this->file, $matches)) {
-				$date = str_replace("_", " ", $matches[0]);
-				$ts = strtotime($date);
+				$date_str = str_replace("_", " ", $matches[0]);
+				$date_str = str_replace(array("'", "-"), ":", $date_str);
+				$ts = strtotime($date_str);
+			} else if (preg_match($this->datetimenosec_pattern, $this->file, $matches)) {
+				$date_str = str_replace(array("_", "-"), " ", $matches[0]);
+				$ts = strtotime($date_str);
+			}
+			if(isset($ts) && $ts !== NULL) {
 				$this->initExif();
 				$this->changeDateTimeTaken($ts);
 				$date = date("Y:m:d H:i:s", $ts);
@@ -129,9 +136,7 @@ class Photo {
 	public function changeDateTimeTaken($ts = NULL) {
 		if(!$this->dry_run) {
 			if ($ts !== null) {
-				$cmd = "jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file);
-				var_dump($cmd);
-				exec($cmd);
+				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file));
 				$this->getExif();
 			}
 		}
