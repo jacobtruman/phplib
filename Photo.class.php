@@ -7,6 +7,7 @@ require_once("ImgCompare.class.php");
 class Photo {
 
 	protected $yearmonth_pattern = '/[0-9]{4}\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i';
+	protected $datetime_pattern = '/[0-9]{8}_[0-9]{6}/i';
 	protected $file;
 	protected $exif;
 	protected $signature;
@@ -65,7 +66,20 @@ class Photo {
 	}
 
 	public function getDateTimeFromExif() {
-		return isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : $this->exif['DateTime']);
+		$date = isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : isset($this->exif['DateTime']) ? $this->exif['DateTime'] : NULL);
+		if($date === NULL) {
+			echo "No date/time from exif".PHP_EOL;
+			if(preg_match($this->datetime_pattern, $this->file, $matches)) {
+				$date = str_replace("_", " ", $matches[0]);
+				$ts = strtotime($date);
+				$this->initExif();
+				$this->changeDateTimeTaken($ts);
+				$date = date("Y:m:d H:i:s", $ts);
+			}
+		} else {
+			echo "Got date/time from exif".PHP_EOL;
+		}
+		return $date;
 	}
 
 	public function renameFile() {
@@ -118,7 +132,9 @@ class Photo {
 	public function changeDateTimeTaken($ts = NULL) {
 		if(!$this->dry_run) {
 			if ($ts !== null) {
-				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file));
+				$cmd = "jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file);
+				var_dump($cmd);
+				exec($cmd);
 				$this->getExif();
 			}
 		}
@@ -134,6 +150,13 @@ class Photo {
 	public function clearExifNote() {
 		if(!$this->dry_run) {
 			exec("jhead -dc " . $this->cleanFilename($this->file));
+			$this->getExif();
+		}
+	}
+
+	protected function initExif() {
+		if(!$this->dry_run) {
+			exec("jhead -mkexif " . $this->cleanFilename($this->file));
 			$this->getExif();
 		}
 	}
