@@ -68,16 +68,13 @@ class Photo {
 	public function getDateTimeFromExif() {
 		$date = isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : isset($this->exif['DateTime']) ? $this->exif['DateTime'] : NULL);
 		if($date === NULL) {
-			echo "No date/time from exif".PHP_EOL;
-			if(preg_match($this->datetime_pattern, $this->file, $matches)) {
+			if (preg_match($this->datetime_pattern, $this->file, $matches)) {
 				$date = str_replace("_", " ", $matches[0]);
 				$ts = strtotime($date);
 				$this->initExif();
 				$this->changeDateTimeTaken($ts);
 				$date = date("Y:m:d H:i:s", $ts);
 			}
-		} else {
-			echo "Got date/time from exif".PHP_EOL;
 		}
 		return $date;
 	}
