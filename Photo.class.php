@@ -82,6 +82,7 @@ class Photo {
 	}
 
 	public function getDateTimeFromFilename() {
+		$date = NULL;
 		if (preg_match($this->datetime_pattern, $this->file, $matches)) {
 			$date_str = str_replace("_", " ", $matches[0]);
 			$date_str = str_replace(array("'", "-"), ":", $date_str);
