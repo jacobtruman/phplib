@@ -42,6 +42,13 @@ class Photo {
 			$this->log_prefix = "** DRY RUN ** ";
 		}
 		$this->initLog();
+
+		/*$file_parts = explode(".", $this->file);
+		$this->ext = strtolower(end($file_parts));
+		if($this->ext !== "jpg") {
+			$this->convertToJpg();
+		}*/
+
 		$this->getExif();
 		$this->getSignature();
 	}
@@ -69,19 +76,25 @@ class Photo {
 	public function getDateTimeFromExif() {
 		$date = isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : isset($this->exif['DateTime']) ? $this->exif['DateTime'] : NULL);
 		if($date === NULL) {
-			if (preg_match($this->datetime_pattern, $this->file, $matches)) {
-				$date_str = str_replace("_", " ", $matches[0]);
-				$date_str = str_replace(array("'", "-"), ":", $date_str);
-				$ts = strtotime($date_str);
-			} else if (preg_match($this->datetimenosec_pattern, $this->file, $matches)) {
-				$date_str = str_replace(array("_", "-"), " ", $matches[0]);
-				$ts = strtotime($date_str);
-			}
-			if(isset($ts) && $ts !== NULL) {
-				$this->initExif();
-				$this->changeDateTimeTaken($ts);
-				$date = date("Y:m:d H:i:s", $ts);
-			}
+			$date = $this->getDateTimeFromFilename();
+		}
+		return $date;
+	}
+
+	public function getDateTimeFromFilename() {
+		if (preg_match($this->datetime_pattern, $this->file, $matches)) {
+			$date_str = str_replace("_", " ", $matches[0]);
+			$date_str = str_replace(array("'", "-"), ":", $date_str);
+			$ts = strtotime($date_str);
+		} else if (preg_match($this->datetimenosec_pattern, $this->file, $matches)) {
+			$date_str = str_replace(array("_", "-"), " ", $matches[0]);
+			$ts = strtotime($date_str);
+		}
+		if(isset($ts) && $ts !== NULL) {
+			$this->initExif();
+			$this->changeDateTimeTaken($ts);
+			$date = date("Y:m:d H:i:s", $ts);
+			$this->logger->addToLog($this->log_prefix."Setting date/time \"{$date}\" to file {$this->file}");
 		}
 		return $date;
 	}
@@ -245,6 +258,18 @@ class Photo {
 
 	protected function cleanFilename($filename) {
 		return addcslashes($filename, ' ,(,)\',"');
+	}
+
+	public function convertToJpg() {
+		$method = "imagecreatefrom".strtolower($this->ext);
+		$image = $method($this->file);
+		$quality = 100;
+		$outfile = str_ireplace(".{$this->ext}", ".jpg", $this->file);
+		imagejpeg($image, $outfile, $quality);
+		imagedestroy($image);
+		$this->deleteImage();
+		$this->file = $outfile;
+		$this->ext = "jpg";
 	}
 }
 
