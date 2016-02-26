@@ -2,14 +2,14 @@
 
 class TVShow
 {
-	private $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|\.[0-9]{1,2}[0-9]{1,2}/';
-	private $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}(?<![0-9]{2})/';
-	private $episode;
-	private $season;
-	private $show;
-	private $show_string;
-	private $valid;
-	private $invalid_reason;
+	protected $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|\.[0-9]{1,2}[0-9]{1,2}/';
+	protected $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}(?<![0-9]{2})/';
+	protected $episode;
+	protected $season;
+	protected $show;
+	protected $show_string;
+	protected $valid;
+	protected $invalid_reason;
 
 	/**
 	* Initializes the object
@@ -76,7 +76,23 @@ class TVShow
 	}
 
 	public function getEpisodeString() {
-		return $this->show_string;
+		return "S".$this->padNumber($this->getSeasonNumber())."E".$this->padNumber($this->getEpisodeNumber());
+	}
+
+	public function getShowFolder() {
+		return $this->show;
+	}
+
+	public function getSeasonNumber() {
+		return $this->season;
+	}
+
+	public function getEpisodeNumber() {
+		return substr($this->episode, strpos($this->episode, $this->season) + 1);
+	}
+
+	public function getShowString() {
+		return $this->show;
 	}
 
 	public function __get($name) {
@@ -114,6 +130,13 @@ class TVShow
 			$this->show = trim(str_replace($matches[0], "", $this->show));
 		}
 		$this->show = ucwords($this->show);
+	}
+
+	protected function padNumber($number, $len = 2) {
+		while(strlen($number) < $len) {
+			$number = "0".$number;
+		}
+		return $number;
 	}
 }
 
