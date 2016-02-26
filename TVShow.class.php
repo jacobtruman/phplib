@@ -8,6 +8,7 @@ class TVShow
 	protected $season;
 	protected $show;
 	protected $show_string;
+	protected $show_folder;
 	protected $valid;
 	protected $invalid_reason;
 
@@ -80,7 +81,7 @@ class TVShow
 	}
 
 	public function getShowFolder() {
-		return $this->show;
+		return $this->show_folder;
 	}
 
 	public function getSeasonNumber() {
@@ -121,15 +122,18 @@ class TVShow
 	}
 
 	private function cleanShowName() {
-		//$year_pattern = "/\((\d{4})\)/";
-		$year_pattern = "/(\d{4})/";
 		$this->show = str_replace(array("'", '"', "&", "-", "(", ")"), "", $this->show);
 		$this->show = str_replace(array("."), " ", $this->show);
+		$this->show = ucwords($this->show);
+
 		// check if the show name contains the year, if so, remove it
+		$year_pattern = "/(\d{4})/";
 		if(preg_match($year_pattern, $this->show, $matches)) {
 			$this->show = trim(str_replace($matches[0], "", $this->show));
+			$this->show_folder .= $this->show." (".$matches[0].")";
+		} else {
+			$this->show_folder = $this->show;
 		}
-		$this->show = ucwords($this->show);
 	}
 
 	protected function padNumber($number, $len = 2) {
