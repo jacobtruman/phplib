@@ -75,6 +75,10 @@ class TVShow
 		return $ret_val;
 	}
 
+	public function getEpisodeString() {
+		return $this->show_string;
+	}
+
 	public function __get($name) {
 		if(isset($this->$name)) {
 			$ret_val = $this->$name;
