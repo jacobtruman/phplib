@@ -1,24 +1,53 @@
 <?php
 
+/**
+ * Class TVShow
+ */
 class TVShow
 {
+	/**
+	 * @var string
+	 */
 	protected $episode_pattern = '/[Ss][0-9]{1,2}[Ee][0-9]{1,2}|[0-9]{1,2}x[0-9]{1,2}|\.[0-9]{1,2}[0-9]{1,2}/';
+	/**
+	 * @var string
+	 */
 	protected $season_pattern = '/[Ss][0-9]{1,2}|[0-9]{1,2}(?<![0-9]{2})/';
+	/**
+	 * @var
+	 */
 	protected $episode;
+	/**
+	 * @var
+	 */
 	protected $season;
+	/**
+	 * @var
+	 */
 	protected $show;
+	/**
+	 * @var mixed
+	 */
 	protected $show_string;
+	/**
+	 * @var
+	 */
 	protected $show_folder;
+	/**
+	 * @var bool
+	 */
 	protected $valid;
+	/**
+	 * @var string
+	 */
 	protected $invalid_reason;
 
 	/**
 	* Initializes the object
-	* @param string $string The show/episode string to be objectized
-	* @return boolean true if it is a valid string, else false
+	* @param string $show_string The show/episode string to be objectized
 	*/
 	public function __construct($show_string) {
-		$this->show_string = $show_string;
+		$this->show_string = str_replace(array("720p", "X264", "HDTV"), "", $show_string);
 		$this->valid = true;
 
 		if(!$this->getEpisode()) {
@@ -42,6 +71,9 @@ class TVShow
 		$this->cleanShowName();
 	}
 
+	/**
+	 * @return bool
+	 */
 	private function getShow() {
 		$ret_val = true;
 		if(isset($this->episode)) {
@@ -54,6 +86,9 @@ class TVShow
 		return $ret_val;
 	}
 
+	/**
+	 * @return bool
+	 */
 	private function getSeason() {
 		$ret_val = true;
 		preg_match($this->season_pattern, $this->episode, $episode_parts);
@@ -65,6 +100,9 @@ class TVShow
 		return $ret_val;
 	}
 
+	/**
+	 * @return bool
+	 */
 	private function getEpisode() {
 		$ret_val = true;
 		preg_match_all($this->episode_pattern, $this->show_string, $title_parts);
@@ -76,26 +114,45 @@ class TVShow
 		return $ret_val;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getEpisodeString() {
 		return "S".$this->padNumber($this->getSeasonNumber())."E".$this->padNumber($this->getEpisodeNumber());
 	}
 
+	/**
+	 * @return mixed
+	 */
 	public function getShowFolder() {
 		return $this->show_folder;
 	}
 
+	/**
+	 * @return mixed
+	 */
 	public function getSeasonNumber() {
 		return $this->season;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getEpisodeNumber() {
 		return substr($this->episode, strpos($this->episode, $this->season) + 1);
 	}
 
+	/**
+	 * @return mixed
+	 */
 	public function getShowString() {
 		return $this->show;
 	}
 
+	/**
+	 * @param $name
+	 * @return bool
+	 */
 	public function __get($name) {
 		if(isset($this->$name)) {
 			$ret_val = $this->$name;
@@ -105,22 +162,37 @@ class TVShow
 		return $ret_val;
 	}
 
+	/**
+	 * @return bool
+	 */
 	public function isValid() {
 		return $this->valid;
 	}
 
+	/**
+	 * @return string
+	 */
 	public function getInvalidReason() {
 		return $this->invalid_reason;
 	}
 
+	/**
+	 *
+	 */
 	private function cleanEpisode() {
 		$this->episode = (int)str_replace(array("S", "s", "E", "e", "x"), "", $this->episode);
 	}
 
+	/**
+	 *
+	 */
 	private function cleanSeason() {
 		$this->season = (int)str_replace(array("S", "s"), "", $this->season);
 	}
 
+	/**
+	 *
+	 */
 	private function cleanShowName() {
 		$this->show = str_replace(array("'", '"', "&", "-", "(", ")"), "", $this->show);
 		$this->show = str_replace(array("."), " ", $this->show);
@@ -136,6 +208,11 @@ class TVShow
 		}
 	}
 
+	/**
+	 * @param $number
+	 * @param int $len
+	 * @return string
+	 */
 	protected function padNumber($number, $len = 2) {
 		while(strlen($number) < $len) {
 			$number = "0".$number;
