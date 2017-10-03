@@ -18,6 +18,10 @@ class TVShow
 	 */
 	protected $episode;
 	/**
+	 * @var null
+	 */
+	protected $episode_number = null;
+	/**
 	 * @var
 	 */
 	protected $season;
@@ -48,6 +52,7 @@ class TVShow
 	*/
 	public function __construct($show_string) {
 		$this->show_string = str_replace(array("720p", "X264", "HDTV"), "", $show_string);
+		//$this->show_string = $show_string;
 		$this->valid = true;
 
 		if(!$this->getEpisode()) {
@@ -91,11 +96,16 @@ class TVShow
 	 */
 	private function getSeason() {
 		$ret_val = true;
-		preg_match($this->season_pattern, $this->episode, $episode_parts);
-		if(!empty($episode_parts[0])) {
-			$this->season = $episode_parts[0];
+		if(strlen($this->episode) == 4 && $this->episode[0] != "s" && $this->episode[0] != "S") {
+			$this->season = substr($this->episode, 0, 2);
+			$this->episode_number = substr($this->episode, 2, 2);
 		} else {
-			$ret_val = false;
+			preg_match($this->season_pattern, $this->episode, $episode_parts);
+			if(!empty($episode_parts[0])) {
+				$this->season = $episode_parts[0];
+			} else {
+				$ret_val = false;
+			}
 		}
 		return $ret_val;
 	}
@@ -139,7 +149,10 @@ class TVShow
 	 * @return string
 	 */
 	public function getEpisodeNumber() {
-		return substr($this->episode, strpos($this->episode, $this->season) + 1);
+		if($this->episode_number == null) {
+			$this->episode_number = substr($this->episode, strpos($this->episode, $this->season) + 1);
+		}
+		return $this->episode_number;
 	}
 
 	/**
