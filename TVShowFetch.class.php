@@ -35,7 +35,11 @@ class TVShowFetch {
 					$show_id = $show_info['show_id'];
 					$base_url = "http://www.cbs.com";
 
-					$show_url = "{$base_url}/carousels/shows/{$show_id}/offset/{$offset}/limit/{$limit}/";
+					if(isset($show_info['single_season']) && $show_info['single_season']) {
+						$show_url = "{$base_url}/carousels/videosBySection/{$show_id}/offset/{$offset}/limit/{$limit}/xs/0/";
+					} else {
+						$show_url = "{$base_url}/carousels/shows/{$show_id}/offset/{$offset}/limit/{$limit}/";
+					}
 					if ($this->latest) {
 						$data_file = "./{$show_id}-latest.json";
 					} else {
