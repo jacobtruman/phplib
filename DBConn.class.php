@@ -4,7 +4,7 @@ class DBConn extends MySqli
 {
 	public function __construct($dbname = "trucraft")
 	{
-		parent::__construct('localhost', 'web_user', 'w3bu53r', $dbname);
+		parent::__construct('127.0.0.1', 'web_user', 'w3bu53r', $dbname);
 	}
 	
 	public function query($query)

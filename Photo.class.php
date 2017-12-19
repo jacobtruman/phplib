@@ -7,43 +7,60 @@ require_once("ImgCompare.class.php");
 class Photo {
 
 	protected $yearmonth_pattern = '/[0-9]{4}\/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i';
+	protected $datetime_pattern = '/[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}\'[0-9]{2}\'[0-9]{2}|[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}|[0-9]{8}_[0-9]{6}/i';
+	protected $datetimenosec_pattern = '/[0-9]{8}-[0-9]{4}/i';
 	protected $file;
 	protected $exif;
 	protected $signature;
-	protected $path;
+	protected $dest_path;
 	protected $dry_run;
 	protected $db;
 	protected $table = "images";
 	protected $log_prefix = "";
+	protected $trash_dir = "/mine/ImageTrash";
+	protected $trash = false;
 
 	/**
 	 * Initializes the object
 	 *
-	 * @param $path                 The destination base path
-	 * @param $file                 The file location of the photo
-	 * @param null $base_path       The source base path
+	 * @param $source_file          The file location of the photo
+	 * @param null $dest_path       The dest base path
 	 * @param bool|false $dry_run
+	 * @param bool|false $verbose
+	 * @param bool|false $trash
 	 * @param null $logger
 	 */
-	public function __construct($path, $file, $base_path = NULL, $dry_run = false, $logger = NULL) {
-		$this->path = $path;
-		$this->base_path = $base_path;
-		$this->file = $file;
+	public function __construct($source_file, $dest_path = NULL, $dry_run = false, $verbose = false, $trash = false, $logger = NULL) {
+		$this->dest_path = $dest_path;
+		$this->file = $this->cleanPath($source_file);
 		$this->logger = $logger;
 		$this->dry_run = $dry_run;
-		$this->verbose = true;
+		$this->verbose = $verbose;
+		$this->trash = $trash;
 		$this->db = new DBConn();
 		if($this->dry_run) {
 			$this->log_prefix = "** DRY RUN ** ";
 		}
 		$this->initLog();
+
+		/*$file_parts = explode(".", $this->file);
+		$this->ext = strtolower(end($file_parts));
+		if($this->ext !== "jpg") {
+			$this->convertToJpg();
+		}*/
+
 		$this->getExif();
 		$this->getSignature();
 	}
 
+	public function addProgressToLog($count, $num) {
+		$perc = $this->getProgress($count, $num);
+		$this->log_prefix .= "{$num} / {$count}: {$perc}% :: ";
+	}
+
 	protected function initLog() {
 		if($this->logger === NULL) {
-			$this->logger = new Logger("/mine/logs/Photos_".date("Y-m-d").".log");
+			$this->logger = new Logger("/mine/logs/Photos_".date("Y-m-d").".log", !$this->verbose);
 		}
 	}
 
@@ -57,39 +74,65 @@ class Photo {
 	}
 
 	public function getDateTimeFromExif() {
-		return isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : $this->exif['DateTime']);
+		$date = isset($this->exif['DateTimeDigitized']) ? $this->exif['DateTimeDigitized'] : (isset($this->exif['DateTimeOriginal']) ? $this->exif['DateTimeOriginal'] : isset($this->exif['DateTime']) ? $this->exif['DateTime'] : NULL);
+		if($date === NULL) {
+			$date = $this->getDateTimeFromFilename();
+		}
+		return $date;
+	}
+
+	public function getDateTimeFromFilename() {
+		$date = NULL;
+		if (preg_match($this->datetime_pattern, $this->file, $matches)) {
+			$date_str = str_replace("_", " ", $matches[0]);
+			$date_str = str_replace(array("'", "-"), ":", $date_str);
+			$ts = strtotime($date_str);
+		} else if (preg_match($this->datetimenosec_pattern, $this->file, $matches)) {
+			$date_str = str_replace(array("_", "-"), " ", $matches[0]);
+			$ts = strtotime($date_str);
+		}
+		if(isset($ts) && $ts !== NULL) {
+			$this->initExif();
+			$this->changeDateTimeTaken($ts);
+			$date = date("Y:m:d H:i:s", $ts);
+			$this->logger->addToLog($this->log_prefix."Setting date/time \"{$date}\" to file {$this->file}");
+		}
+		return $date;
 	}
 
 	public function renameFile() {
-		$datetime = $this->getDateTimeFromExif();
-		if(!empty($datetime)) {
-			$ts = strtotime($datetime);
-			if(!empty($ts)) {
-				$new_file = $this->getNewFilename($ts);
-				list($in_db, $records) = ImgCompare::isInDB($new_file, $this->signature);
-				//var_dump($this->file);
-				var_dump($in_db);
-				var_dump($records);
-				exit;
-				if($new_file !== NULL) {
-					$this->logger->addToLog($this->log_prefix."Renaming file " . $this->file . " to " . $new_file);
-					$this->addExifNote("Renamed from " . $this->file . " to " . $new_file);
-					if(!$this->dry_run) {
-						if (!rename($this->file, $new_file)) {
-							$this->logger->addToLog($this->log_prefix."Failed to rename file - reverting exif changes");
-							$this->clearExifNote();
-						} else {
-							$this->file = $new_file;
+		list($in_db, $records) = ImgCompare::isInDB($this->file, $this->signature, $this->table);
+		if(!$in_db) {
+			$datetime = $this->getDateTimeFromExif();
+			if (!empty($datetime)) {
+				$ts = strtotime($datetime);
+				if (!empty($ts)) {
+					$new_file = $this->getNewFilename($ts);
+					if ($new_file !== NULL) {
+						$this->logger->addToLog($this->log_prefix . "Renaming file " . $this->file . " to " . $new_file);
+						$this->addExifNote("Renamed from " . $this->file . " to " . $new_file);
+						if (!$this->dry_run) {
+							if (!rename($this->file, $new_file)) {
+								$this->logger->addToLog($this->log_prefix . "Failed to rename file - reverting exif changes");
+								$this->clearExifNote();
+							} else {
+								$this->file = $new_file;
+								ImgCompare::processFile($this->file, $this->table);
+							}
 						}
+					} else {
+						$this->logger->addToLog($this->log_prefix . "Unable to get new filename for " . $this->file);
 					}
 				} else {
-					$this->logger->addToLog($this->log_prefix."Unable to get new filename for " . $this->file);
+					$this->logger->addToLog($this->log_prefix . "Timestamp is empty for " . $this->file);
 				}
 			} else {
-				$this->logger->addToLog($this->log_prefix."Timestamp is empty for " . $this->file);
+				$this->logger->addToLog($this->log_prefix . "Unable to get datetime from " . $this->file);
 			}
 		} else {
-			$this->logger->addToLog($this->log_prefix."Unable to get datetime from " . $this->file);
+			$this->logger->addToLog($this->log_prefix . "Duplicate found for " . $this->file);
+			var_dump($records);
+			$this->deleteImage();
 		}
 	}
 
@@ -107,7 +150,7 @@ class Photo {
 	public function changeDateTimeTaken($ts = NULL) {
 		if(!$this->dry_run) {
 			if ($ts !== null) {
-				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . addslashes($this->file));
+				exec("jhead -ts" . date("Y:m:d:H:i:s", $ts) . " " . $this->cleanFilename($this->file));
 				$this->getExif();
 			}
 		}
@@ -115,84 +158,56 @@ class Photo {
 
 	public function addExifNote($note) {
 		if(!$this->dry_run) {
-			exec("jhead -cl \"" . addslashes($note) . "\" " . addslashes($this->file));
+			exec("jhead -cl \"" . addslashes($note) . "\" " . $this->cleanFilename($this->file));
 			$this->getExif();
 		}
 	}
 
 	public function clearExifNote() {
 		if(!$this->dry_run) {
-			exec("jhead -dc " . addslashes($this->file));
+			exec("jhead -dc " . $this->cleanFilename($this->file));
 			$this->getExif();
 		}
 	}
 
+	protected function initExif() {
+		if(!$this->dry_run) {
+			exec("jhead -mkexif " . $this->cleanFilename($this->file));
+			$this->getExif();
+		}
+	}
+
+	public function setTable($table) {
+		$this->table = $table;
+	}
+
 	protected function getNewFilename($ts) {
 		// format yyyy-mm-dd_hh'mm'ss
-		$filename = date("Y-m-d_H'i's", $ts).".jpg";
+		$filename = date("Y-m-d_H'i's", $ts) . ".jpg";
 		$year = date("Y", $ts);
 		$month = date("M", $ts);
-		$path = $this->base_path;
-		if($path === NULL) {
-			$path = $this->path;
-		}
+		$path = $this->dest_path;
 		preg_match($this->yearmonth_pattern, $path, $matches);
-		if(!count($matches)) {
-			$path .= "/".$year."/".$month;
+		if (!count($matches)) {
+			$path .= "/" . $year . "/" . $month;
 		}
 		// cleanup the path a little
-		$path = str_replace("//", "/", $path);
-		if(!is_dir($path)) {
-			$this->logger->addToLog($this->log_prefix."Creating directory: ".$path);
+		$path = $this->cleanPath($path);
+		if (!is_dir($path)) {
+			$this->logger->addToLog($this->log_prefix . "Creating directory: " . $path);
 			mkdir($path, 0777, true);
 		}
 
-		$file = $path."/".$filename;
+		$file = $path . "/" . $filename;
 
-		list($in_db, $records) = ImgCompare::isInDB($file, $this->signature);
-		//var_dump($this->file);
-		var_dump($in_db);
-		var_dump($records);
-		exit;
-
-		$this->logger->addToLog($this->log_prefix."Checking file: {$this->file} against {$file}");
-		if($this->isDuplicate($this->file, $file)) {
-			// do nothing with the image
-			$this->logger->addToLog($this->log_prefix."duplicate image, skipping");
-			return NULL;
-		} else if(!$this->fileExists($file)) {
-			$this->logger->addToLog($this->log_prefix."image name exists, incrementing image time and trying again");
+		$this->logger->addToLog($this->log_prefix . "Checking file: {$this->file} against {$file}");
+		if ($this->fileExists($file)) {
+			$this->logger->addToLog($this->log_prefix . "image name exists, incrementing image time and trying again");
 			$this->addToDateTimeTaken(1);
 			return $this->getNewFilename(++$ts);
 		} else {
 			return $file;
 		}
-	}
-
-	protected function isDuplicate($source_file, $dest_file) {
-		// check the file with the same name, and the db
-		$source_hash = $this->getFileHash($source_file);
-		if(!$this->fileExists($dest_file)) {
-			$dest_hash = $this->getFileHash($dest_file);
-			if($source_hash == $dest_hash) {
-				if($this->verbose) {
-					$this->logger->addToLog($this->log_prefix . "{{$source_file}} is a duplicate of dest file {{$dest_file}}");
-				}
-				return true;
-			}
-		} else {
-			$sql = "SELECT * FROM {$this->table} WHERE hash = '{$source_hash}' AND path <> '{$this->db->real_escape_string($dest_file)}'";
-			$result = $this->db->query($sql);
-			if($result->num_rows > 0) {
-				if($this->verbose) {
-					while ($row = $result->fetch_assoc()) {
-						$this->logger->addToLog($this->log_prefix . "{{$source_file}} is a duplicate of {{$row['path']}}");
-					}
-				}
-				return true;
-			}
-		}
-		return false;
 	}
 
 	protected function fileExists(&$file) {
@@ -210,6 +225,52 @@ class Photo {
 
 	protected function getFileHash($file) {
 		return md5(file_get_contents($file));
+	}
+
+	protected function deleteImage() {
+		$ret_val = false;
+		if(!file_exists($this->trash_dir)) {
+			mkdir($this->trash_dir, 0777);
+		}
+
+		$dest_file = $this->trash_dir . $this->file;
+		$dest_dir = dirname($dest_file);
+		if (!file_exists($dest_dir)) {
+			mkdir($dest_dir, 0777, true);
+		}
+
+		$this->logger->addToLog($this->log_prefix . "Moving file to trash: " . $this->file . " to " . $dest_file);
+		if(!$this->dry_run && $this->trash) {
+			$ret_val = rename($this->file, $dest_file);
+		}
+		return $ret_val;
+	}
+
+	protected function cleanPath($path) {
+		while(strstr($path, "//")) {
+			$path = str_replace("//", "/", $path);
+		}
+		return $path;
+	}
+
+	protected function getProgress($count, $num) {
+		return number_format(round((($num / $count) * 100), 2), 2);
+	}
+
+	protected function cleanFilename($filename) {
+		return addcslashes($filename, ' ,(,)\',"');
+	}
+
+	public function convertToJpg() {
+		$method = "imagecreatefrom".strtolower($this->ext);
+		$image = $method($this->file);
+		$quality = 100;
+		$outfile = str_ireplace(".{$this->ext}", ".jpg", $this->file);
+		imagejpeg($image, $outfile, $quality);
+		imagedestroy($image);
+		$this->deleteImage();
+		$this->file = $outfile;
+		$this->ext = "jpg";
 	}
 }
 
