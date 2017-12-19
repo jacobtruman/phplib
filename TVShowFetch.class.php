@@ -11,14 +11,18 @@ class TVShowFetch {
 		register_shutdown_function(array($this, 'shutdownHandler'));
 	}
 
-	public function getCBSShows($shows_file) {
-		if ($this->latest) {
-			$limit = 1;
-		} else {
-			$limit = 100;
-		}
-		if (file_exists($shows_file)) {
-			$shows_to_get = json_decode(file_get_contents($shows_file), true);
+	public function processFile($file, $method) {
+		call_user_func_array(array($this, $method), array($file));
+	}
+
+	protected function getCBSShows($file) {
+		$shows_to_get = $this->getShowInfoFromFile($file);
+		if ($shows_to_get !== false) {
+			if ($this->latest) {
+				$limit = 1;
+			} else {
+				$limit = 100;
+			}
 			foreach ($shows_to_get as $show_info) {
 				$offset = 0;
 				$total = null;
@@ -61,8 +65,6 @@ class TVShowFetch {
 						$this->processUrl("{$base_url}{$record['url']}", $file_path);
 					}
 
-					unlink($data_file);
-
 					if ($this->latest) {
 						break;
 					}
@@ -71,9 +73,9 @@ class TVShowFetch {
 		}
 	}
 
-	public function getNBCShows($shows_file) {
-		if (file_exists($shows_file)) {
-			$shows_to_get = json_decode(file_get_contents($shows_file), true);
+	protected function getNBCShows($file) {
+		$shows_to_get = $this->getShowInfoFromFile($file);
+		if ($shows_to_get !== false) {
 			foreach ($shows_to_get as $show_info) {
 				if (!isset($show_info['active']) || !$show_info['active']) {
 					continue;
@@ -149,13 +151,41 @@ class TVShowFetch {
 						}
 					}
 				}
-
-				unlink($data_file);
 			}
 		}
 	}
 
-	public function getShowsFromFile($file) {
+	protected function getCWShows($file) {
+		$shows_to_get = $this->getShowInfoFromFile($file);
+		if ($shows_to_get !== false) {
+			$date = date("Ymd");
+
+			foreach($shows_to_get as $show_info) {
+				$show_id = $show_info['show_id'];
+				$show_url = "http://images.cwtv.com/data/r_{$date}000/videos/{$show_id}/data.js";
+				$data_file = "./{$show_id}.json";
+
+				$this->populateDataFile($show_url, $data_file);
+
+				$not_json = file_get_contents($data_file);
+				$start = strpos($not_json, "{");
+				$end = strpos($not_json, ";", $start);
+				$json = json_decode(substr($not_json, $start, $end - $start), true);
+
+				foreach($json as $episode_id=>$episode_info) {
+					if($episode_info['type'] == "Full") {
+						$episode_url = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
+						$this->processUrl($episode_url);
+						if($this->latest) {
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	protected function getShowsFromFile($file) {
 		if (file_exists($file)) {
 			$urls = explode("\n", trim(file_get_contents($file)));
 			foreach ($urls as $url) {
@@ -177,6 +207,13 @@ class TVShowFetch {
 			file_put_contents($file, $output);
 			$this->data_files[] = $file;
 		}
+	}
+
+	protected function getShowInfoFromFile($file) {
+		if (file_exists($file)) {
+			return json_decode(file_get_contents($file), true);
+		}
+		return false;
 	}
 
 	protected function processUrl($url, $file_path = null) {
