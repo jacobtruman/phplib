@@ -12,7 +12,9 @@ class TVShowFetch {
 	}
 
 	public function processFile($file, $method) {
-		call_user_func_array(array($this, $method), array($file));
+		if($method == "getCWShows") {
+			call_user_func_array(array($this, $method), array($file));
+		}
 	}
 
 	protected function getCBSShows($file) {
@@ -182,7 +184,18 @@ class TVShowFetch {
 				foreach($json as $episode_id=>$episode_info) {
 					if($episode_info['type'] == "Full") {
 						$episode_url = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
+						$filename = $this->getFilename($episode_url);
+						if($filename) {
+							$ext = substr($filename, strrpos($filename, "."));
+						} else {
+							$ext = null;
+						}
 						$this->processUrl($episode_url);
+						if($ext == ".ismv") {
+							$new_filename = str_replace($ext, ".mp4", $filename);
+							$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
+							$this->runCommand($cmd);
+						}
 						if($this->latest) {
 							break;
 						}
@@ -229,8 +242,28 @@ class TVShowFetch {
 			$cmd .= " -o '{$file_path}.%(ext)s'";
 		}
 		$cmd .= " {$url}";
+		$this->runCommand($cmd);
+	}
+
+	protected function runCommand($cmd) {
 		echo $cmd . PHP_EOL;
-		system($cmd);
+		system($cmd, $status);
+		if($status !== 0) {
+			echo "ERROR: the command '{$cmd}' exited with code '{$status}'" . PHP_EOL;
+		}
+	}
+
+	protected function getFilename($url) {
+		$filename = false;
+		$cmd = "youtube-dl --config-location ~/.config/youtube-dl/config-tvshow --get-filename {$url}";
+		echo $cmd . PHP_EOL;
+		exec($cmd, $ret, $status);
+		if($status !== 0) {
+			echo "ERROR: the command '{$cmd}' exited with code '{$status}': {$ret}" . PHP_EOL;
+		} else {
+			$filename = $ret[0];
+		}
+		return $filename;
 	}
 
 	public function shutdownHandler() {
