@@ -161,6 +161,9 @@ class TVShowFetch {
 			$date = date("Ymd");
 
 			foreach($shows_to_get as $show_info) {
+				if (!isset($show_info['active']) || !$show_info['active']) {
+					continue;
+				}
 				$show_id = $show_info['show_id'];
 				$show_url = "http://images.cwtv.com/data/r_{$date}000/videos/{$show_id}/data.js";
 				$data_file = "./{$show_id}.json";
