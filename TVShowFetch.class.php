@@ -6,15 +6,24 @@ class TVShowFetch {
 
 	protected $data_files = array();
 
-	public function __construct($latest = true) {
-		$this->latest = $latest;
+	protected $base_dir = "~/TVShows";
+
+	public function __construct($params = array()) {
+		foreach ($params as $param => $value) {
+			$this->$param = $value;
+		}
+
 		register_shutdown_function(array($this, 'shutdownHandler'));
 	}
 
 	public function processFile($file, $method) {
-		if($method == "getCWShows") {
+		if ($method == "getCWShows") {
 			call_user_func_array(array($this, $method), array($file));
 		}
+	}
+
+	protected function getFetchCommand() {
+		return "youtube-dl --no-mtime --audio-quality 0 -o '{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02dE%(episode_number)02d.%(ext)s'";
 	}
 
 	protected function getCBSShows($file) {
@@ -37,7 +46,7 @@ class TVShowFetch {
 					$show_id = $show_info['show_id'];
 					$base_url = "http://www.cbs.com";
 
-					if(isset($show_info['single_season']) && $show_info['single_season']) {
+					if (isset($show_info['single_season']) && $show_info['single_season']) {
 						$show_url = "{$base_url}/carousels/videosBySection/{$show_id}/offset/{$offset}/limit/{$limit}/xs/0/";
 					} else {
 						$show_url = "{$base_url}/carousels/shows/{$show_id}/offset/{$offset}/limit/{$limit}/";
@@ -57,8 +66,9 @@ class TVShowFetch {
 					$offset += $limit;
 
 					foreach ($json['result']['data'] as $record) {
-						$file_path = null;
+						$filename = null;
 						$episode_number = $record['episode_number'];
+						$episode_url = "{$base_url}{$record['url']}";
 						if (strstr($episode_number, ",")) {
 							$episode_numbers = explode(",", $episode_number);
 							$episodes = array();
@@ -66,9 +76,10 @@ class TVShowFetch {
 								$episodes[] = "E" . str_pad(trim($episode_number), 2, "0", STR_PAD_LEFT);
 							}
 							$episode_string = implode("-", $episodes);
-							$file_path = "/mine/TVShows/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02d{$episode_string}";
+							$filename = "{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02d{$episode_string}";
 						}
-						$this->processUrl("{$base_url}{$record['url']}", $file_path);
+
+						$this->processUrl($episode_url, $filename);
 					}
 
 					if ($this->latest) {
@@ -149,7 +160,7 @@ class TVShowFetch {
 						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
 						$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
 						$episode_string = "S{$season}E{$episode}";
-						$file_path = "/mine/TVShows/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+						$file_path = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
 
 						$this->processUrl($attributes['permalink'], $file_path);
 						if ($this->latest) {
@@ -166,7 +177,7 @@ class TVShowFetch {
 		if ($shows_to_get !== false) {
 			$date = date("Ymd");
 
-			foreach($shows_to_get as $show_info) {
+			foreach ($shows_to_get as $show_info) {
 				if (!isset($show_info['active']) || !$show_info['active']) {
 					continue;
 				}
@@ -181,27 +192,12 @@ class TVShowFetch {
 				$end = strpos($not_json, ";", $start);
 				$json = json_decode(substr($not_json, $start, $end - $start), true);
 
-				foreach($json as $episode_id=>$episode_info) {
-					if($episode_info['type'] == "Full") {
+				foreach ($json as $episode_id => $episode_info) {
+					if ($episode_info['type'] == "Full") {
 						$episode_url = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
-						$filename = $this->getFilename($episode_url);
-						if($filename) {
-							$ext = substr($filename, strrpos($filename, "."));
-						} else {
-							$ext = null;
-						}
 						$this->processUrl($episode_url);
-						if($ext == ".ismv") {
-							$new_filename = str_replace($ext, ".mp4", $filename);
-							$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
-							if($this->runCommand($cmd)) {
-								echo "Deleting source file '{$filename}''" . PHP_EOL;
-								unlink($filename);
-							} else {
-								echo "Conversion failed; keeping source file '{$filename}''" . PHP_EOL;
-							}
-						}
-						if($this->latest) {
+
+						if ($this->latest) {
 							break;
 						}
 					}
@@ -241,32 +237,45 @@ class TVShowFetch {
 		return false;
 	}
 
-	protected function processUrl($url, $file_path = null) {
-		$cmd = "youtube-dl --config-location ~/.config/youtube-dl/config-tvshow";
-		if (!empty($file_path)) {
-			$cmd .= " -o '{$file_path}.%(ext)s'";
+	protected function processUrl($url, $filename = null) {
+		$cmd = $this->getFetchCommand();
+		if (!empty($filename)) {
+			$cmd .= " -o '{$filename}.%(ext)s'";
+		} else {
+			$filename = $this->getFilename($url);
 		}
 		$cmd .= " {$url}";
-		return $this->runCommand($cmd);
-	}
 
-	protected function runCommand($cmd) {
-		$ret = true;
-		echo $cmd . PHP_EOL;
-		system($cmd, $status);
-		if($status !== 0) {
-			echo "ERROR: the command '{$cmd}' exited with code '{$status}'" . PHP_EOL;
-			$ret = false;
+		$file_info = pathinfo($filename);
+		$ext = ".{$file_info['extension']}";
+		$new_filename = null;
+		if (in_array($ext, array(".flv", ".ismv"))) {
+			$new_filename = str_replace($ext, ".mp4", $filename);
 		}
-		return $ret;
+
+		if (!file_exists($new_filename)) {
+			if ($this->runCommand($cmd)) {
+				if ($new_filename !== null) {
+					$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
+					if ($this->runCommand($cmd)) {
+						echo "Deleting source file '{$filename}''" . PHP_EOL;
+						unlink($filename);
+					} else {
+						echo "Conversion failed; keeping source file '{$filename}''" . PHP_EOL;
+					}
+				}
+			}
+		} else {
+			echo "File already exists: {$new_filename}" . PHP_EOL;
+		}
 	}
 
 	protected function getFilename($url) {
 		$filename = false;
-		$cmd = "youtube-dl --config-location ~/.config/youtube-dl/config-tvshow --get-filename {$url}";
+		$cmd = $this->getFetchCommand() . " --get-filename {$url}";
 		echo $cmd . PHP_EOL;
 		exec($cmd, $ret, $status);
-		if($status !== 0) {
+		if ($status !== 0) {
 			echo "ERROR: the command '{$cmd}' exited with code '{$status}': {$ret}" . PHP_EOL;
 		} else {
 			$filename = $ret[0];
@@ -274,10 +283,21 @@ class TVShowFetch {
 		return $filename;
 	}
 
+	protected function runCommand($cmd) {
+		$ret = true;
+		echo $cmd . PHP_EOL;
+		system($cmd, $status);
+		if ($status !== 0) {
+			echo "ERROR: the command '{$cmd}' exited with code '{$status}'" . PHP_EOL;
+			$ret = false;
+		}
+		return $ret;
+	}
+
 	public function shutdownHandler() {
 		echo "Cleaning up" . PHP_EOL;
-		foreach($this->data_files as $data_file) {
-			if(file_exists($data_file)) {
+		foreach ($this->data_files as $data_file) {
+			if (file_exists($data_file)) {
 				echo "Deleting data file '{$data_file}''" . PHP_EOL;
 				unlink($data_file);
 			}
