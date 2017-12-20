@@ -194,7 +194,12 @@ class TVShowFetch {
 						if($ext == ".ismv") {
 							$new_filename = str_replace($ext, ".mp4", $filename);
 							$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
-							$this->runCommand($cmd);
+							if($this->runCommand($cmd)) {
+								echo "Deleting source file '{$filename}''" . PHP_EOL;
+								unlink($filename);
+							} else {
+								echo "Conversion failed; keeping source file '{$filename}''" . PHP_EOL;
+							}
 						}
 						if($this->latest) {
 							break;
@@ -242,15 +247,18 @@ class TVShowFetch {
 			$cmd .= " -o '{$file_path}.%(ext)s'";
 		}
 		$cmd .= " {$url}";
-		$this->runCommand($cmd);
+		return $this->runCommand($cmd);
 	}
 
 	protected function runCommand($cmd) {
+		$ret = true;
 		echo $cmd . PHP_EOL;
 		system($cmd, $status);
 		if($status !== 0) {
 			echo "ERROR: the command '{$cmd}' exited with code '{$status}'" . PHP_EOL;
+			$ret = false;
 		}
+		return $ret;
 	}
 
 	protected function getFilename($url) {
