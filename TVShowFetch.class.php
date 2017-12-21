@@ -244,6 +244,9 @@ class TVShowFetch {
 		} else {
 			$filename = $this->getFilename($url);
 		}
+
+		$filename = $this->sanitizeFilename($filename);
+
 		$cmd .= " {$url}";
 
 		$file_info = pathinfo($filename);
@@ -253,7 +256,11 @@ class TVShowFetch {
 			$new_filename = str_replace($ext, ".mp4", $filename);
 		}
 
-		if (!file_exists($new_filename)) {
+		if ($new_filename !== null && file_exists($new_filename)) {
+			echo "File already exists: {$new_filename}" . PHP_EOL;
+		} else if ($new_filename === null && file_exists($filename)) {
+			echo "File already exists: {$filename}" . PHP_EOL;
+		} else {
 			if ($this->runCommand($cmd)) {
 				if ($new_filename !== null) {
 					$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
@@ -265,8 +272,6 @@ class TVShowFetch {
 					}
 				}
 			}
-		} else {
-			echo "File already exists: {$new_filename}" . PHP_EOL;
 		}
 	}
 
@@ -292,6 +297,10 @@ class TVShowFetch {
 			$ret = false;
 		}
 		return $ret;
+	}
+
+	protected function sanitizeFilename($filename) {
+		return str_replace(array("'"), "", $filename);
 	}
 
 	public function shutdownHandler() {
