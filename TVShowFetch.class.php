@@ -17,9 +17,7 @@ class TVShowFetch {
 	}
 
 	public function processFile($file, $method) {
-		if ($method == "getCWShows") {
-			call_user_func_array(array($this, $method), array($file));
-		}
+		call_user_func_array(array($this, $method), array($file));
 	}
 
 	protected function getFetchCommand() {
