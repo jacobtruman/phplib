@@ -325,6 +325,70 @@ class TVShowFetch {
 		}
 	}
 
+	protected function getCBCShows($file) {
+		$shows_to_get = $this->getShowInfoFromFile($file);
+		if ($shows_to_get !== false) {
+			foreach ($shows_to_get as $show_info) {
+				if (!isset($show_info['active']) || !$show_info['active']) {
+					continue;
+				}
+				$episodes = array();
+				$show_id = $show_info['show_id'];
+				$base_url = "http://www.cbc.ca";
+
+				$url = "{$base_url}/{$show_id}/episodes/season1";
+
+				$data_file = "{$show_id}.html";
+				$contents = $this->getDataFile($url, $data_file);
+				$dom = $this->getDOM($contents);
+
+				$elements = $dom->getElementsByTagName('div');
+
+				foreach ($elements as $element) {
+					if(strstr($element->getAttribute('class'), "seasons")) {
+						$seasons = $element->getElementsByTagName('a');
+						foreach($seasons as $season) {
+							$season_url = $base_url.$season->getAttribute('href');
+							$season_number = str_replace("Season ", "", $season->nodeValue);
+							$data_file = "{$show_id}-{$season_number}.html";
+							$contents = $this->getDataFile($season_url, $data_file);
+							$season_dom = $this->getDOM($contents);
+							$list_items = $season_dom->getElementsByTagName('li');
+							foreach ($list_items as $item) {
+								if(strstr($item->getAttribute('class'), "episode")) {
+									$links = $item->getElementsByTagName('a');
+									foreach($links as $link) {
+										$episode_page_url = $base_url.$link->getAttribute('href');
+										$episode_spans = $link->getElementsByTagName('span');
+										foreach($episode_spans as $span) {
+											$episode_num_date = explode(" ", trim($span->nodeValue));
+											$episode_number = intval(substr($episode_num_date[0], strlen($season_number)));
+										}
+										$data_file = "{$show_id}-{$season_number}-{$episode_number}.html";
+										$contents = $this->getDataFile($episode_page_url, $data_file);
+										$episode_dom = $this->getDOM($contents);
+										$divs = $episode_dom->getElementsByTagName('div');
+										foreach($divs as $div) {
+											if(strstr($div->getAttribute('class'), "responsive-container")) {
+												$episode_links = $div->getElementsByTagName('a');
+												foreach($episode_links as $episode_link) {
+													$episodes[$season_number][$episode_number]['url'] = $episode_link->getAttribute('href');
+													$episodes[$season_number][$episode_number]['filename'] = null;
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				$this->processEpisodes($episodes);
+			}
+		}
+	}
+
 	protected function getDOM($contents) {
 		$dom = new DOMDocument;
 		@$dom->loadHTML($contents);
