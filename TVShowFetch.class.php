@@ -2,27 +2,57 @@
 
 require_once("Logger.class.php");
 
+/**
+ * Class TVShowFetch
+ */
 class TVShowFetch {
 
+	/**
+	 * @var bool
+	 */
 	protected $latest = false;
 
+	/**
+	 * @var bool
+	 */
 	protected $execute = false;
 
+	/**
+	 * @var bool
+	 */
 	protected $verbose = false;
 
+	/**
+	 * @var array
+	 */
 	protected $data_files = array();
 
+	/**
+	 * @var string
+	 */
 	protected $base_dir = "~/TVShows";
 
+	/**
+	 * @var string
+	 */
 	protected $data_dir = "./.tmp_data";
 
-	protected $apiKey = null;
-
+	/**
+	 * @var string
+	 */
 	protected $log_dir = "~/logs";
 
+	/**
+	 * @var Logger|null
+	 */
 	protected $logger = null;
 
+	/**
+	 * @param array $params
+	 */
 	public function __construct($params = array()) {
+		register_shutdown_function(array($this, 'shutdownHandler'));
+
 		foreach ($params as $param => $value) {
 			if(property_exists($this, $param)) {
 				$rp = new ReflectionProperty($this, $param);
@@ -39,26 +69,33 @@ class TVShowFetch {
 		if(!is_dir($this->data_dir)) {
 			mkdir($this->data_dir, 0777, true);
 		}
-
-		register_shutdown_function(array($this, 'shutdownHandler'));
 	}
 
-	public function processFile($file, $method) {
-		call_user_func_array(array($this, $method), array($file));
+	/**
+	 * @param $config
+	 */
+	public function processConfig($config) {
+		$this->logger->addToLog("Processing network '{$config['network']}'");
+		call_user_func_array(array($this, $config['method']), array($config));
 	}
 
+	/**
+	 * @return string
+	 */
 	protected function getFetchCommand() {
 		return "youtube-dl --no-mtime --audio-quality 0 -o '{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02dE%(episode_number)02d.%(ext)s'";
 	}
 
-	protected function getCBSShows($file) {
-		$shows_to_get = $this->getShowInfoFromFile($file);
+	/**
+	 * @param $config
+	 */
+	protected function getCBSShows($config) {
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			$base_url = "http://www.cbs.com";
 			$limit = 100;
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
-					$this->logger->addToLog("{$show_info['show_title']} is not active - skipping");
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 				$episodes = array();
@@ -107,11 +144,14 @@ class TVShowFetch {
 		}
 	}
 
-	protected function getNBCShows($file) {
-		$shows_to_get = $this->getShowInfoFromFile($file);
+	/**
+	 * @param $config
+	 */
+	protected function getNBCShows($config) {
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 				$episodes = array();
@@ -181,13 +221,16 @@ class TVShowFetch {
 		}
 	}
 
-	protected function getCWShows($file) {
-		$shows_to_get = $this->getShowInfoFromFile($file);
+	/**
+	 * @param $config
+	 */
+	protected function getCWShows($config) {
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			$date = date("Ymd");
 
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 				$episodes = array();
@@ -214,12 +257,15 @@ class TVShowFetch {
 		}
 	}
 
-	protected function getABCShows($file) {
-		$shows_to_get = $this->getShowInfoFromFile($file);
+	/**
+	 * @param $config
+	 */
+	protected function getABCShows($config) {
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			$base_url = "http://abc.go.com";
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 
@@ -283,15 +329,18 @@ class TVShowFetch {
 		}
 	}
 
-	protected function getFOXShows($file) {
+	/**
+	 * @param $config
+	 */
+	protected function getFOXShows($config) {
 		$headers = array(
-			"apiKey: {$this->apiKey}"
+			"apiKey: {$config['apiKey']}"
 		);
 
-		$shows_to_get = $this->getShowInfoFromFile($file);
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 				$episodes = array();
@@ -325,11 +374,14 @@ class TVShowFetch {
 		}
 	}
 
-	protected function getCBCShows($file) {
-		$shows_to_get = $this->getShowInfoFromFile($file);
+	/**
+	 * @param $config
+	 */
+	protected function getCBCShows($config) {
+		$shows_to_get = $config['shows'];
 		if ($shows_to_get !== false) {
 			foreach ($shows_to_get as $show_info) {
-				if (!isset($show_info['active']) || !$show_info['active']) {
+				if (!$this->isActive($show_info)) {
 					continue;
 				}
 				$episodes = array();
@@ -389,6 +441,10 @@ class TVShowFetch {
 		}
 	}
 
+	/**
+	 * @param $contents
+	 * @return DOMDocument
+	 */
 	protected function getDOM($contents) {
 		$dom = new DOMDocument;
 		@$dom->loadHTML($contents);
@@ -413,6 +469,9 @@ class TVShowFetch {
 		return $ret;
 	}
 
+	/**
+	 * @param $file
+	 */
 	protected function getShowsFromFile($file) {
 		if (file_exists($file)) {
 			$urls = explode("\n", trim(file_get_contents($file)));
@@ -424,6 +483,12 @@ class TVShowFetch {
 		}
 	}
 
+	/**
+	 * @param $url
+	 * @param $file
+	 * @param null $headers
+	 * @return string
+	 */
 	protected function getDataFile($url, $file, $headers = null) {
 		$file = "{$this->data_dir}/{$file}";
 		if (!file_exists($file)) {
@@ -443,13 +508,9 @@ class TVShowFetch {
 		return file_get_contents($file);
 	}
 
-	protected function getShowInfoFromFile($file) {
-		if (file_exists($file)) {
-			return json_decode(file_get_contents($file), true);
-		}
-		return false;
-	}
-
+	/**
+	 * @param $episodes
+	 */
 	protected function processEpisodes($episodes) {
 		if ($this->latest) {
 			$latest = $this->getLatestEpisode($episodes);
@@ -470,8 +531,13 @@ class TVShowFetch {
 				}
 			}
 		}
+		$this->cleanup();
 	}
 
+	/**
+	 * @param $url
+	 * @param null $filename
+	 */
 	protected function processUrl($url, $filename = null) {
 		$cmd = $this->getFetchCommand();
 		if (!empty($filename)) {
@@ -516,6 +582,10 @@ class TVShowFetch {
 		}
 	}
 
+	/**
+	 * @param $url
+	 * @return bool
+	 */
 	protected function getFilename($url) {
 		$filename = false;
 		$cmd = $this->getFetchCommand() . " --get-filename {$url}";
@@ -529,6 +599,10 @@ class TVShowFetch {
 		return $filename;
 	}
 
+	/**
+	 * @param $cmd
+	 * @return bool
+	 */
 	protected function runCommand($cmd) {
 		$ret = true;
 		$this->logger->addToLog($cmd);
@@ -540,17 +614,46 @@ class TVShowFetch {
 		return $ret;
 	}
 
+	/**
+	 * @param $filename
+	 * @return mixed
+	 */
 	protected function sanitizeFilename($filename) {
 		return str_replace(array("'"), "", $filename);
 	}
 
-	public function shutdownHandler() {
+	/**
+	 * @param $show_info
+	 * @return bool
+	 */
+	protected function isActive($show_info) {
+		if (!isset($show_info['active']) || !$show_info['active']) {
+			$this->logger->addToLog("{$show_info['show_title']} is not active - skipping");
+			return false;
+		} else {
+			$this->logger->addToLog("Processing show '{$show_info['show_title']}'");
+			return true;
+		}
+	}
+
+	/**
+	 *
+	 */
+	protected function cleanup() {
 		$this->logger->addToLog("Cleaning up");
-		foreach ($this->data_files as $data_file) {
+		foreach ($this->data_files as $i=>$data_file) {
 			if (file_exists($data_file)) {
 				$this->logger->addToLog("Deleting data file '{$data_file}''");
 				unlink($data_file);
 			}
+			unset($this->data_files[$i]);
 		}
+	}
+
+	/**
+	 *
+	 */
+	public function shutdownHandler() {
+		$this->cleanup();
 	}
 }
