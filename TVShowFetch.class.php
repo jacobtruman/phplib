@@ -215,7 +215,7 @@ class TVShowFetch {
 						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
 						$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
 						$episode_string = "S{$season}E{$episode}";
-						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}.mp4";
 
 						$episodes[$season_number][$episode_number]['url'] = $attributes['permalink'];
 						$episodes[$season_number][$episode_number]['filename'] = $filename;
@@ -588,7 +588,7 @@ class TVShowFetch {
 		$file_info = pathinfo($filename);
 		if (isset($file_info['extension'])) {
 			$ext = ".{$file_info['extension']}";
-			if ($ext != ".mp4") {
+			if ($ext !== ".mp4") {
 				$new_filename = str_replace($ext, ".mp4", $filename);
 			}
 		}
@@ -679,8 +679,13 @@ class TVShowFetch {
 	 */
 	protected function convert($filename, $new_filename) {
 		$rename = false;
-		if ($new_filename === null) {
-			$new_filename = $filename . ".NEW";
+		$file_info = pathinfo($filename);
+		$ext = ".mp4";
+		if (isset($file_info['extension'])) {
+			$ext = ".{$file_info['extension']}";
+		}
+		if ($new_filename === null || $ext === ".mp4") {
+			$new_filename = str_replace($ext, "NEW.mp4", $filename);
 			$rename = true;
 		}
 		$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
