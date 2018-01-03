@@ -53,6 +53,11 @@ class TVShowFetch {
 	protected $filter = null;
 
 	/**
+	 * @var null
+	 */
+	protected $networks = null;
+
+	/**
 	 * @param array $params
 	 */
 	public function __construct($params = array()) {
@@ -71,17 +76,28 @@ class TVShowFetch {
 			$this->logger = new Logger("{$this->log_dir}/TVShowFetch_" . date("Y-m-d") . ".log", !$this->verbose);
 		}
 
+		if($this->networks !== null) {
+			$this->networks = explode(",", $this->networks);
+		}
+
 		if (!is_dir($this->data_dir)) {
 			mkdir($this->data_dir, 0777, true);
 		}
+
+		$home = getenv("HOME");
+		$this->base_dir = str_replace("~", $home, $this->base_dir);
+		$this->log_dir = str_replace("~", $home, $this->log_dir);
+		$this->data_dir = str_replace("~", $home, $this->data_dir);
 	}
 
 	/**
 	 * @param $config
 	 */
 	public function processConfig($config) {
-		$this->logger->addToLog("Processing network '{$config['network']}'");
-		call_user_func_array(array($this, $config['method']), array($config));
+		if($this->networks === null || in_array($config['network'], $this->networks)) {
+			$this->logger->addToLog("Processing network '{$config['network']}'");
+			call_user_func_array(array($this, $config['method']), array($config));
+		}
 	}
 
 	/**
@@ -215,7 +231,7 @@ class TVShowFetch {
 						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
 						$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
 						$episode_string = "S{$season}E{$episode}";
-						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}.mp4";
+						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
 
 						$episodes[$season_number][$episode_number]['url'] = $attributes['permalink'];
 						$episodes[$season_number][$episode_number]['filename'] = $filename;
@@ -573,24 +589,32 @@ class TVShowFetch {
 	 * @param null $filename
 	 */
 	protected function processUrl($url, $filename = null) {
+		$filename_auto = $this->getFilename($url);
+		$file_info = pathinfo($filename_auto);
+		$ext = null;
+		if (isset($file_info['extension'])) {
+			$ext = ".{$file_info['extension']}";
+		}
+
 		$cmd = $this->getFetchCommand();
 		if (!empty($filename)) {
 			$cmd .= " -o '{$filename}.%(ext)s'";
 		} else {
-			$filename = $this->getFilename($url);
+			$filename = $filename_auto;
 		}
 
 		$filename = $this->sanitizeFilename($filename);
 
+		$file_info = pathinfo($filename);
+		if (!isset($file_info['extension']) && $ext !== null) {
+			$filename .= $ext;
+		}
+
 		$cmd .= " {$url}";
 
 		$new_filename = null;
-		$file_info = pathinfo($filename);
-		if (isset($file_info['extension'])) {
-			$ext = ".{$file_info['extension']}";
-			if ($ext !== ".mp4") {
-				$new_filename = str_replace($ext, ".mp4", $filename);
-			}
+		if ($ext !== ".mp4") {
+			$new_filename = str_replace($ext, ".mp4", $filename);
 		}
 
 		if ($new_filename !== null && file_exists($new_filename)) {
