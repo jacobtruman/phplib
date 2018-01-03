@@ -77,7 +77,7 @@ class TVShowFetch {
 		}
 
 		if($this->networks !== null) {
-			$this->networks = explode(",", $this->networks);
+			$this->networks = explode(",", strtolower($this->networks));
 		}
 
 		if (!is_dir($this->data_dir)) {
@@ -94,7 +94,7 @@ class TVShowFetch {
 	 * @param $config
 	 */
 	public function processConfig($config) {
-		if($this->networks === null || in_array($config['network'], $this->networks)) {
+		if($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
 			$this->logger->addToLog("Processing network '{$config['network']}'");
 			call_user_func_array(array($this, $config['method']), array($config));
 		}
