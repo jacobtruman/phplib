@@ -72,6 +72,11 @@ class TVShowFetch {
 			}
 		}
 
+		$home = getenv("HOME");
+		$this->base_dir = str_replace("~", $home, $this->base_dir);
+		$this->log_dir = str_replace("~", $home, $this->log_dir);
+		$this->data_dir = str_replace("~", $home, $this->data_dir);
+
 		if ($this->logger === null) {
 			$this->logger = new Logger("{$this->log_dir}/TVShowFetch_" . date("Y-m-d") . ".log", !$this->verbose);
 		}
@@ -83,11 +88,6 @@ class TVShowFetch {
 		if (!is_dir($this->data_dir)) {
 			mkdir($this->data_dir, 0777, true);
 		}
-
-		$home = getenv("HOME");
-		$this->base_dir = str_replace("~", $home, $this->base_dir);
-		$this->log_dir = str_replace("~", $home, $this->log_dir);
-		$this->data_dir = str_replace("~", $home, $this->data_dir);
 	}
 
 	/**
