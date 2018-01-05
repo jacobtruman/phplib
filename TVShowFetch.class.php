@@ -181,15 +181,13 @@ class TVShowFetch {
 
 				$base_url = "https://api.nbc.com/v3.14/videos";
 
-				$end_date = date("Y-m-d");
+				$end_date = date("Y-m-d", strtotime("+1 day"));
 
 				$params = array();
 				$params[] = "fields[videos]=title,type,available,seasonNumber,episodeNumber,expiration,entitlement,tveAuthWindow,nbcAuthWindow,permalink,embedUrl";
 				$params[] = "filter[show]={$show_id}";
 				$params[] = "filter[available][value]={$end_date}";
-				$params[] = "filter[available][operator]=<=";
-				$params[] = "filter[expiration][value]={$end_date}";
-				$params[] = "filter[expiration][operator]=>";
+				$params[] = "filter[available][operator]=<";
 				$params[] = "filter[entitlement][value]=free";
 				$params[] = "filter[entitlement][operator]==";
 				$params[] = "filter[type][value]=Full Episode";
