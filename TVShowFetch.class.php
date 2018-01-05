@@ -25,7 +25,7 @@ class TVShowFetch {
 	/**
 	 * @var bool
 	 */
-	protected $purge = false;
+	protected $keep_files = false;
 
 	/**
 	 * @var string
@@ -89,9 +89,7 @@ class TVShowFetch {
 			mkdir($this->data_dir, 0777, true);
 		}
 
-		if($this->purge) {
-			$this->cleanup();
-		}
+		$this->cleanup();
 	}
 
 	/**
@@ -729,12 +727,14 @@ class TVShowFetch {
 	 *
 	 */
 	protected function cleanup() {
-		$this->logger->addToLog("Cleaning up");
-		$data_files = glob("{$this->data_dir}/*");
-		foreach ($data_files as $data_file) {
-			if (file_exists($data_file)) {
-				$this->logger->addToLog("Deleting data file '{$data_file}'");
-				unlink($data_file);
+		if(!$this->keep_files) {
+			$this->logger->addToLog("Cleaning up");
+			$data_files = glob("{$this->data_dir}/*");
+			foreach ($data_files as $data_file) {
+				if (file_exists($data_file)) {
+					$this->logger->addToLog("Deleting data file '{$data_file}'");
+					unlink($data_file);
+				}
 			}
 		}
 	}
