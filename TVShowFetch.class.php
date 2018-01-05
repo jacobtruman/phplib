@@ -185,56 +185,68 @@ class TVShowFetch {
 
 				$end_date = date("Y-m-d", strtotime("+1 day"));
 
-				$params = array();
-				$params[] = "fields[videos]=title,type,available,seasonNumber,episodeNumber,expiration,entitlement,tveAuthWindow,nbcAuthWindow,permalink,embedUrl";
-				$params[] = "filter[show]={$show_id}";
-				$params[] = "filter[available][value]={$end_date}";
-				$params[] = "filter[available][operator]=<";
-				$params[] = "filter[entitlement][value]=free";
-				$params[] = "filter[entitlement][operator]==";
-				$params[] = "filter[type][value]=Full Episode";
-				$params[] = "filter[type][operator]==";
-				$params[] = "sort=-airdate";
+				// get the season count:
+				// https://api.nbc.com/v3.14/aggregatesShowProperties/9f2c1c13-c4ad-487f-9b06-1bc900d82aaf
+				// the aggregate id can be pulled from the videos data, but I am missing the field that contains the data...
 
-				$params_string = str_replace("%5D%3D", "%5D=", str_replace("%3D%3C", "=%3C", str_replace("%3D%3E", "=%3E", str_replace("%3D%3D", "=%3D", implode("&", array_map("urlencode", $params))))));
+				$data = null;
+				$page_num = 0;
+				while($data === null || count($data) > 0) {
+					$page_num++;
+					$params = array();
+					$params[] = "fields[videos]=title,type,available,seasonNumber,episodeNumber,expiration,entitlement,tveAuthWindow,nbcAuthWindow,permalink,embedUrl";
+					$params[] = "filter[show]={$show_id}";
+					$params[] = "filter[available][value]={$end_date}";
+					$params[] = "filter[available][operator]=<";
+					$params[] = "filter[entitlement][value]=free";
+					$params[] = "filter[entitlement][operator]==";
+					$params[] = "filter[type][value]=Full Episode";
+					$params[] = "filter[type][operator]==";
+					$params[] = "page[number]={$page_num}";
+					$params[] = "page[size]=50";
+					$params[] = "sort=-airdate";
 
-				$show_url = $base_url . "?" . $params_string;
+					$params_string = str_replace("%5D%3D", "%5D=", str_replace("%3D%3C", "=%3C", str_replace("%3D%3E", "=%3E", str_replace("%3D%3D", "=%3D", implode("&", array_map("urlencode", $params))))));
 
-				$data_file = str_replace(" ", "_", strtolower($show_title)) . ".json";
+					$show_url = $base_url . "?" . $params_string;
 
-				$contents = $this->getDataFile($show_url, $data_file);
+					$data_file = str_replace(" ", "_", strtolower($show_title)) . "-{$page_num}.json";
 
-				$json = json_decode($contents, true);
+					$contents = $this->getDataFile($show_url, $data_file);
 
-				$now = time();
-				foreach ($json['data'] as $record) {
-					$attributes = $record['attributes'];
-					$entitlement = $attributes['entitlement'];
-					if ($entitlement != "free") {
-						continue;
-					}
+					$json = json_decode($contents, true);
+					$data = $json['data'];
 
-					$get = false;
-					foreach ($attributes['nbcAuthWindow'] as $window) {
-						if ($window['type'] != "free") {
+					$now = time();
+					foreach ($data as $record) {
+						$attributes = $record['attributes'];
+						$entitlement = $attributes['entitlement'];
+						if ($entitlement != "free") {
 							continue;
 						}
-						$end_ts = strtotime($window['end']);
-						if ($now < $end_ts) {
-							$get = true;
+
+						$get = false;
+						foreach ($attributes['nbcAuthWindow'] as $window) {
+							if ($window['type'] != "free") {
+								continue;
+							}
+							$end_ts = strtotime($window['end']);
+							if ($now < $end_ts) {
+								$get = true;
+							}
 						}
-					}
 
-					if ($get) {
-						$season_number = $attributes['seasonNumber'];
-						$episode_number = $attributes['episodeNumber'];
-						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
-						$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
-						$episode_string = "S{$season}E{$episode}";
-						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+						if ($get) {
+							$season_number = $attributes['seasonNumber'];
+							$episode_number = $attributes['episodeNumber'];
+							$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
+							$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
+							$episode_string = "S{$season}E{$episode}";
+							$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
 
-						$episodes[$season_number][$episode_number]['url'] = $attributes['permalink'];
-						$episodes[$season_number][$episode_number]['filename'] = $filename;
+							$episodes[$season_number][$episode_number]['url'] = $attributes['permalink'];
+							$episodes[$season_number][$episode_number]['filename'] = $filename;
+						}
 					}
 				}
 				$this->processEpisodes($episodes);
