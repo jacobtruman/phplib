@@ -81,7 +81,7 @@ class TVShowFetch {
 			$this->logger = new Logger("{$this->log_dir}/TVShowFetch_" . date("Y-m-d") . ".log", !$this->verbose);
 		}
 
-		if($this->networks !== null) {
+		if ($this->networks !== null) {
 			$this->networks = explode(",", strtolower($this->networks));
 		}
 
@@ -96,7 +96,7 @@ class TVShowFetch {
 	 * @param $config
 	 */
 	public function processConfig($config) {
-		if($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
+		if ($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
 			$this->logger->addToLog("Processing network '{$config['network']}'");
 			call_user_func_array(array($this, $config['method']), array($config));
 		}
@@ -185,16 +185,14 @@ class TVShowFetch {
 
 				$end_date = date("Y-m-d", strtotime("+1 day"));
 
-				// get the season count:
-				// https://api.nbc.com/v3.14/aggregatesShowProperties/9f2c1c13-c4ad-487f-9b06-1bc900d82aaf
-				// the aggregate id can be pulled from the videos data, but I am missing the field that contains the data...
-
-				$data = null;
+				$loop = true;
 				$page_num = 0;
-				while($data === null || count($data) > 0) {
+				$page_size = 50;
+				while ($loop) {
 					$page_num++;
 					$params = array();
-					$params[] = "fields[videos]=title,type,available,seasonNumber,episodeNumber,expiration,entitlement,tveAuthWindow,nbcAuthWindow,permalink,embedUrl";
+					$params[] = "fields[videos]=title,type,available,seasonNumber,episodeNumber,expiration,entitlement,tveAuthWindow,nbcAuthWindow,permalink,embedUrl,externalAdId";
+					$params[] = "include=show.season";
 					$params[] = "filter[show]={$show_id}";
 					$params[] = "filter[available][value]={$end_date}";
 					$params[] = "filter[available][operator]=<";
@@ -202,11 +200,11 @@ class TVShowFetch {
 					$params[] = "filter[entitlement][operator]==";
 					$params[] = "filter[type][value]=Full Episode";
 					$params[] = "filter[type][operator]==";
-					$params[] = "page[number]={$page_num}";
-					$params[] = "page[size]=50";
-					$params[] = "sort=-airdate";
 
-					$params_string = str_replace("%5D%3D", "%5D=", str_replace("%3D%3C", "=%3C", str_replace("%3D%3E", "=%3E", str_replace("%3D%3D", "=%3D", implode("&", array_map("urlencode", $params))))));
+					$params[] = "page[number]={$page_num}";
+					$params[] = "page[size]={$page_size}";
+
+					$params_string = str_replace("include%3D", "include=", str_replace("%5D%3D", "%5D=", str_replace("%3D%3C", "=%3C", str_replace("%3D%3E", "=%3E", str_replace("%3D%3D", "=%3D", implode("&", array_map("urlencode", $params)))))));
 
 					$show_url = $base_url . "?" . $params_string;
 
@@ -216,6 +214,10 @@ class TVShowFetch {
 
 					$json = json_decode($contents, true);
 					$data = $json['data'];
+					// break out of the loop
+					if (count($data) < $page_size) {
+						$loop = false;
+					}
 
 					$now = time();
 					foreach ($data as $record) {
@@ -443,12 +445,12 @@ class TVShowFetch {
 				$this->cleanup();
 
 				$max_season = null;
-				if($this->latest) {
+				if ($this->latest) {
 					$max_season = max(array_keys($seasons));
 				}
 				$episode_pages = array();
-				foreach($seasons as $season_number => $season_url) {
-					if($max_season !== null && $season_number !== $max_season) {
+				foreach ($seasons as $season_number => $season_url) {
+					if ($max_season !== null && $season_number !== $max_season) {
 						continue;
 					}
 					$data_file = "{$show_id}-{$season_number}.html";
@@ -474,12 +476,12 @@ class TVShowFetch {
 				$this->cleanup();
 
 				$max_episode = null;
-				if($this->latest) {
+				if ($this->latest) {
 					$max_episode = max(array_keys($episode_pages[$max_season]));
 				}
-				foreach($episode_pages as $season_number => $episode_pages) {
+				foreach ($episode_pages as $season_number => $episode_pages) {
 					foreach ($episode_pages as $episode_number => $episode_page_url) {
-						if($max_episode !== null && $episode_number !== $max_episode) {
+						if ($max_episode !== null && $episode_number !== $max_episode) {
 							continue;
 						}
 						$data_file = "{$show_id}-{$season_number}-{$episode_number}.html";
@@ -573,6 +575,8 @@ class TVShowFetch {
 	 * @param $episodes
 	 */
 	protected function processEpisodes($episodes) {
+		// sort by season number
+		ksort($episodes);
 		if ($this->latest) {
 			$latest = $this->getLatestEpisode($episodes);
 			$this->logger->addToLog("Processing latest episode");
@@ -586,6 +590,8 @@ class TVShowFetch {
 		} else {
 			$this->logger->addToLog("Processing episodes from " . count($episodes) . " seasons");
 			foreach ($episodes as $season_num => $episode_list) {
+				// sort by episode number
+				ksort($episode_list);
 				$this->logger->addToLog("Processing " . count($episode_list) . " episodes");
 				foreach ($episode_list as $episode_num => $episode) {
 					$this->processUrl($episode['url'], $episode['filename']);
@@ -667,7 +673,7 @@ class TVShowFetch {
 	protected function runCommand($cmd) {
 		$ret = true;
 		$this->logger->addToLog($cmd);
-		if($this->verbose) {
+		if ($this->verbose) {
 			system($cmd, $status);
 		} else {
 			exec($cmd, $output, $status);
@@ -739,7 +745,7 @@ class TVShowFetch {
 	 *
 	 */
 	protected function cleanup() {
-		if(!$this->keep_files) {
+		if (!$this->keep_files) {
 			$this->logger->addToLog("Cleaning up");
 			$data_files = glob("{$this->data_dir}/*");
 			foreach ($data_files as $data_file) {
