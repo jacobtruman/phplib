@@ -45,7 +45,7 @@ class TVShowFetch {
 	/**
 	 * @var Logger|null
 	 */
-	protected $logger = null;
+	public $logger = null;
 
 	/**
 	 * @var null
