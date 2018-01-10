@@ -35,7 +35,7 @@ class TVShowFetch {
 	/**
 	 * @var string
 	 */
-	protected $data_dir = "./.tmp_data";
+	protected $data_dir = "/tmp/TVShowFetchData";
 
 	/**
 	 * @var string
@@ -72,10 +72,7 @@ class TVShowFetch {
 			}
 		}
 
-		$home = getenv("HOME");
-		$this->base_dir = str_replace("~", $home, $this->base_dir);
-		$this->log_dir = str_replace("~", $home, $this->log_dir);
-		$this->data_dir = str_replace("~", $home, $this->data_dir);
+		$this->fixFilePaths();
 
 		if ($this->logger === null) {
 			$this->logger = new Logger("{$this->log_dir}/TVShowFetch_" . date("Y-m-d") . ".log", !$this->verbose);
@@ -90,6 +87,14 @@ class TVShowFetch {
 		}
 
 		$this->cleanup();
+	}
+
+	protected function fixFilePaths() {
+		$file_paths = array("base_dir", "log_dir", "data_dir");
+		$home = getenv("HOME");
+		foreach($file_paths as $file_path) {
+			$this->$file_path = str_replace("~", $home, $this->$file_path);
+		}
 	}
 
 	/**
