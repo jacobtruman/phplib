@@ -50,6 +50,11 @@ class TVShowFetch {
 	/**
 	 * @var null
 	 */
+	protected $logger_prefix = null;
+
+	/**
+	 * @var null
+	 */
 	protected $filter = null;
 
 	/**
@@ -102,7 +107,7 @@ class TVShowFetch {
 	 */
 	public function processConfig($config) {
 		if ($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
-			$this->logger->addToLog("Processing network '{$config['network']}'");
+			$this->logger->addToLog("{$this->logger_prefix}Processing network '{$config['network']}'");
 			call_user_func_array(array($this, $config['method']), array($config));
 		}
 	}
@@ -125,8 +130,9 @@ class TVShowFetch {
 			$limit = 100;
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 				$offset = 0;
 				$total = null;
 
@@ -162,12 +168,12 @@ class TVShowFetch {
 							$episode_string = implode("-", $eps);
 							$filename = "{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02d{$episode_string}";
 						}
-						$episodes[$season_number][$episode_number]["url"] = $episode_url;
-						$episodes[$season_number][$episode_number]["filename"] = $filename;
+						$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
+						$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
 					}
 				}
 
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -181,10 +187,10 @@ class TVShowFetch {
 		if ($count) {
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
 				$show_id = $show_info['show_id'];
 				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 
 				$base_url = "https://api.nbc.com/v3.14/videos";
 
@@ -251,12 +257,12 @@ class TVShowFetch {
 							$episode_string = "S{$season}E{$episode}";
 							$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
 
-							$episodes[$season_number][$episode_number]['url'] = $attributes['permalink'];
-							$episodes[$season_number][$episode_number]['filename'] = $filename;
+							$episode_data['episodes'][$season_number][$episode_number]['url'] = $attributes['permalink'];
+							$episode_data['episodes'][$season_number][$episode_number]['filename'] = $filename;
 						}
 					}
 				}
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -272,8 +278,9 @@ class TVShowFetch {
 
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 				$show_id = $show_info['show_id'];
 				$show_url = "http://images.cwtv.com/data/r_{$date}000/videos/{$show_id}/data.js";
 				$data_file = "{$show_id}.json";
@@ -288,11 +295,11 @@ class TVShowFetch {
 					if ($episode_info['type'] == "Full") {
 						$season_number = $episode_info['season'];
 						$episode_number = $episode_info['episode'];
-						$episodes[$season_number][$episode_number]['url'] = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
-						$episodes[$season_number][$episode_number]['filename'] = null;
+						$episode_data['episodes'][$season_number][$episode_number]['url'] = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
+						$episode_data['episodes'][$season_number][$episode_number]['filename'] = null;
 					}
 				}
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -307,8 +314,9 @@ class TVShowFetch {
 			$base_url = "http://abc.go.com";
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 				$show_id = $show_info['show_id'];
 				$show_url = "{$base_url}/shows/{$show_id}/episode-guide/";
 				$data_file = "{$show_id}-base.json";
@@ -354,8 +362,8 @@ class TVShowFetch {
 										}
 
 										if (!$locked) {
-											$episodes[$season_number][$episode]['url'] = $base_url . trim($element->getAttribute('data-url'));
-											$episodes[$season_number][$episode]['filename'] = null;
+											$episode_data['episodes'][$season_number][$episode]['url'] = $base_url . trim($element->getAttribute('data-url'));
+											$episode_data['episodes'][$season_number][$episode]['filename'] = null;
 										}
 									}
 								}
@@ -363,7 +371,7 @@ class TVShowFetch {
 						}
 					}
 				}
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -381,8 +389,9 @@ class TVShowFetch {
 		if ($count) {
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 				$show_id = $show_info['show_id'];
 				$show_url = "https://api.fox.com/fbc-content/v1_4/screens/series-detail/{$show_id}/";
 				$data_file = "{$show_id}.json";
@@ -402,13 +411,13 @@ class TVShowFetch {
 								$episode_number = $episode['episodeNumber'];
 								$id = $episode['id'];
 								$url = "https://www.fox.com/watch/{$id}/";
-								$episodes[$season_number][$episode_number]['url'] = $url;
-								$episodes[$season_number][$episode_number]['filename'] = null;
+								$episode_data['episodes'][$season_number][$episode_number]['url'] = $url;
+								$episode_data['episodes'][$season_number][$episode_number]['filename'] = null;
 							}
 						}
 					}
 				}
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -422,8 +431,9 @@ class TVShowFetch {
 		if ($count) {
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
-				$this->logger->addToLog("Processing show {$num} / {$count} :: '{$show_info['show_title']}'");
-				$episodes = array();
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
 				$show_id = $show_info['show_id'];
 				$base_url = "http://www.cbc.ca";
 
@@ -497,15 +507,15 @@ class TVShowFetch {
 							if (strstr($div->getAttribute('class'), "responsive-container")) {
 								$episode_links = $div->getElementsByTagName('a');
 								foreach ($episode_links as $episode_link) {
-									$episodes[$season_number][$episode_number]['url'] = $episode_link->getAttribute('href');
-									$episodes[$season_number][$episode_number]['filename'] = null;
+									$episode_data['episodes'][$season_number][$episode_number]['url'] = $episode_link->getAttribute('href');
+									$episode_data['episodes'][$season_number][$episode_number]['filename'] = null;
 								}
 							}
 						}
 					}
 				}
 
-				$this->processEpisodes($episodes);
+				$this->processEpisodes($episode_data);
 			}
 		}
 	}
@@ -577,33 +587,46 @@ class TVShowFetch {
 	}
 
 	/**
-	 * @param $episodes
+	 * @param $episode_data
 	 */
-	protected function processEpisodes($episodes) {
-		// sort by season number
-		ksort($episodes);
-		if ($this->latest) {
-			$latest = $this->getLatestEpisode($episodes);
-			$this->logger->addToLog("Processing latest episode");
-			if ($latest !== false) {
-				list($max_season, $max_episode) = $latest;
-				$latest_episode = $episodes[$max_season][$max_episode];
-				$this->processUrl($latest_episode['url'], $latest_episode['filename']);
+	protected function processEpisodes($episode_data) {
+		if(isset($episode_data['episodes']) && isset($episode_data['show'])) {
+			$show_title = $episode_data['show'];
+			$episodes = $episode_data['episodes'];
+			// sort by season number
+			ksort($episodes);
+			$this->logger_prefix = "\t[ {$show_title} ] ";
+			if ($this->latest) {
+				$latest = $this->getLatestEpisode($episodes);
+				$this->logger->addToLog("{$this->logger_prefix}Processing latest episode");
+				if ($latest !== false) {
+					list($max_season, $max_episode) = $latest;
+					$this->logger_prefix = "\t[ {$show_title} ][ Season {$max_season} ][ Episode {$max_episode} ]";
+					$latest_episode = $episodes[$max_season][$max_episode];
+					$this->logger->addToLog("{$this->logger_prefix}");
+					$this->processUrl($latest_episode['url'], $latest_episode['filename']);
+				} else {
+					$this->logger->addToLog("{$this->logger_prefix}[ {$show_title} ] Unable to get the latest episode");
+				}
 			} else {
-				$this->logger->addToLog("Unable to get the latest episode");
-			}
-		} else {
-			$this->logger->addToLog("Processing episodes from " . count($episodes) . " seasons");
-			foreach ($episodes as $season_num => $episode_list) {
-				// sort by episode number
-				ksort($episode_list);
-				$this->logger->addToLog("Processing " . count($episode_list) . " episodes");
-				foreach ($episode_list as $episode_num => $episode) {
-					$this->processUrl($episode['url'], $episode['filename']);
+				$this->logger->addToLog("{$this->logger_prefix}Processing episodes from " . count($episodes) . " seasons");
+				foreach ($episodes as $season_num => $episode_list) {
+					// sort by episode number
+					ksort($episode_list);
+					$this->logger_prefix = "\t[ {$show_title} ] ";
+					$this->logger->addToLog("{$this->logger_prefix}Processing " . count($episode_list) . " episodes");
+					foreach ($episode_list as $episode_num => $episode) {
+						$this->logger_prefix = "\t[ {$show_title} ][ Season {$season_num} ][ Episode {$episode_num} ] ";
+						$this->logger->addToLog("{$this->logger_prefix}");
+						$this->processUrl($episode['url'], $episode['filename']);
+					}
 				}
 			}
+			$this->cleanup();
+		} else {
+			$this->logger->addToLog("{$this->logger_prefix}Episode data structure provided is missing required data");
 		}
-		$this->cleanup();
+		$this->logger_prefix = null;
 	}
 
 	/**
@@ -640,16 +663,16 @@ class TVShowFetch {
 		}
 
 		if ($new_filename !== null && file_exists($new_filename)) {
-			$this->logger->addToLog("File already exists: {$new_filename}");
+			$this->logger->addToLog("{$this->logger_prefix}File already exists: {$new_filename}");
 		} else if ($new_filename === null && file_exists($filename)) {
-			$this->logger->addToLog("File already exists: {$filename}");
+			$this->logger->addToLog("{$this->logger_prefix}File already exists: {$filename}");
 		} else {
 			if ($this->execute) {
 				if ($this->runCommand($cmd)) {
 					$this->convert($filename, $new_filename);
 				}
 			} else {
-				$this->logger->addToLog("NOT EXECUTING COMMAND: {$cmd}");
+				$this->logger->addToLog("{$this->logger_prefix}NOT EXECUTING COMMAND: {$cmd}");
 			}
 		}
 	}
@@ -664,7 +687,7 @@ class TVShowFetch {
 		$this->logger->addToLog($cmd);
 		exec($cmd, $output, $status);
 		if ($status !== 0) {
-			$this->logger->addToLog("ERROR: the command '{$cmd}' exited with code '{$status}': {$output}");
+			$this->logger->addToLog("{$this->logger_prefix}ERROR: the command '{$cmd}' exited with code '{$status}': {$output}");
 		} else {
 			$filename = $output[0];
 		}
@@ -684,7 +707,7 @@ class TVShowFetch {
 			exec($cmd, $output, $status);
 		}
 		if ($status !== 0) {
-			$this->logger->addToLog("ERROR: the command '{$cmd}' exited with code '{$status}'");
+			$this->logger->addToLog("{$this->logger_prefix}ERROR: the command '{$cmd}' exited with code '{$status}'");
 			$ret = false;
 		}
 		return $ret;
@@ -706,15 +729,15 @@ class TVShowFetch {
 		$active_shows = array();
 		foreach ($shows as $show_info) {
 			if (!isset($show_info['active']) || !$show_info['active']) {
-				$this->logger->addToLog("{$show_info['show_title']} is not active - skipping");
+				$this->logger->addToLog("{$this->logger_prefix}{$show_info['show_title']} is not active - skipping");
 			} else if ($this->filter !== null && !stristr($show_info['show_title'], $this->filter)) {
-				$this->logger->addToLog("{$show_info['show_title']} does not match filter provided: '{$this->filter}' - skipping");
+				$this->logger->addToLog("{$this->logger_prefix}{$show_info['show_title']} does not match filter provided: '{$this->filter}' - skipping");
 			} else {
 				$active_shows[] = $show_info;
 			}
 		}
 
-		$this->logger->addToLog("Shows to be processed: " . count($active_shows));
+		$this->logger->addToLog("{$this->logger_prefix}Shows to be processed: " . count($active_shows));
 
 		return $active_shows;
 	}
@@ -736,13 +759,13 @@ class TVShowFetch {
 		}
 		$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
 		if ($this->runCommand($cmd)) {
-			$this->logger->addToLog("Deleting source file '{$filename}'");
+			$this->logger->addToLog("{$this->logger_prefix}Deleting source file '{$filename}'");
 			unlink($filename);
 			if ($rename) {
 				rename($new_filename, $filename);
 			}
 		} else {
-			$this->logger->addToLog("Conversion failed; keeping source file '{$filename}'");
+			$this->logger->addToLog("{$this->logger_prefix}Conversion failed; keeping source file '{$filename}'");
 		}
 	}
 
@@ -751,11 +774,11 @@ class TVShowFetch {
 	 */
 	protected function cleanup() {
 		if (!$this->keep_files) {
-			$this->logger->addToLog("Cleaning up");
+			$this->logger->addToLog("{$this->logger_prefix}Cleaning up");
 			$data_files = glob("{$this->data_dir}/*");
 			foreach ($data_files as $data_file) {
 				if (file_exists($data_file)) {
-					$this->logger->addToLog("Deleting data file '{$data_file}'");
+					$this->logger->addToLog("{$this->logger_prefix}Deleting data file '{$data_file}'");
 					unlink($data_file);
 				}
 			}
