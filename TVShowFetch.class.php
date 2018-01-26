@@ -701,9 +701,8 @@ class TVShowFetch {
 					$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
 					$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
 				}
+				$this->processEpisodes($episode_data);
 			}
-
-			$this->processEpisodes($episode_data);
 		}
 	}
 
