@@ -707,6 +707,104 @@ class TVShowFetch {
 	}
 
 	/**
+	 * @param $config
+	 */
+	protected function getHGTVShows($config) {
+		$shows = $this->getActiveShows($config['shows']);
+		$count = count($shows);
+		if ($count) {
+			foreach ($shows as $i => $show_info) {
+				$num = $i + 1;
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
+
+				$tvdb_episodes = $this->tvdb_api->getSeriesEpisodes($show_info['thetvdb_id']);
+				$tvdb_episodes_data = array();
+				foreach($tvdb_episodes as $data) {
+					if($data['episodeName'] !== null) {
+						$episode_name = $this->sanitizeString($data['episodeName']);
+						$tvdb_episodes_data[strtolower($episode_name)] = array("season_number"=>$data['airedSeason'], "episode_number"=>$data['airedEpisodeNumber']);
+					}
+				}
+
+				$show_id = $show_info['show_id'];
+				$base_url = "http://www.hgtv.com";
+				$base_url_media = "http://sniidevices.scrippsnetworks.com";
+				$page = 1;
+				$max_page = 0;
+				$done = false;
+
+				$seasons = array();
+
+				while(!$done) {
+					$url = "{$base_url}/shows/{$show_id}/videos/p/{$page}";
+
+					$data_file = "{$show_id}-{$page}.html";
+					$contents = $this->getDataFile($url, $data_file);
+
+					$dom = $this->getDOM($contents);
+
+					if($max_page == 0) {
+						$elements = $dom->getElementsByTagName('section');
+						foreach ($elements as $i => $element) {
+							if (strstr($element->getAttribute('class'), "o-Pagination ")) {
+								$items = $element->getElementsByTagName('li');
+								foreach ($items as $item) {
+									if ($item->getAttribute('class') == "o-Pagination__a-ListItem") {
+										$links = $element->getElementsByTagName('a');
+										foreach ($links as $link) {
+											$node_value = trim($link->nodeValue);
+											if (is_numeric($node_value) && $node_value > $max_page) {
+												$max_page = $node_value;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+
+					$elements = $dom->getElementsByTagName('div');
+					foreach ($elements as $element) {
+						if ($element->getAttribute('data-deferred-module') == "video") {
+							$json = json_decode($element->nodeValue, true);
+							foreach($json['channels'][0]['videos'] as $video) {
+								if($video['length'] > 1800) {
+									$vid_id = $video['nlvid'];
+									$vid_sub_id = substr($vid_id, 0, 4);
+									$title = $this->sanitizeString($video['title']);
+									if(isset($tvdb_episodes_data[strtolower($title)])) {
+										$season_number = $tvdb_episodes_data[strtolower($title)]['season_number'];
+										$episode_number = $tvdb_episodes_data[strtolower($title)]['episode_number'];
+										$episode_url = "{$base_url_media}/{$vid_sub_id}/{$vid_id}_6.mp4";
+
+										$episode_string = "S" . str_pad($season_number, 2, "0", STR_PAD_LEFT) . "E" . str_pad($episode_number, 2, "0", STR_PAD_LEFT);
+										$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+										$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
+										$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
+									}
+									#var_dump($video['length']);
+									#var_dump($video['duration']);
+									#var_dump($video['nlvid']);
+									#var_dump($video['releaseUrl']);
+								}
+							}
+							break;
+						}
+					}
+					$page++;
+					if($page > $max_page) {
+						$done = true;
+					}
+				}
+
+				$this->processEpisodes($episode_data);
+			}
+		}
+	}
+
+	/**
 	 * @param $contents
 	 * @return DOMDocument
 	 */
