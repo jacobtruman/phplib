@@ -656,6 +656,7 @@ class TVShowFetch {
 
 				$json = json_decode($contents, true);
 
+				$this->logger->addToLog("{$this->logger_prefix}" . count($json['tilegroup']['tiles']['tile']) . " items found");
 				foreach($json['tilegroup']['tiles']['tile'] as $item) {
 					if($item['accesslevel'] != 0) continue;
 					$title = $this->sanitizeString($item['video']['title'], $sanitize_string);
