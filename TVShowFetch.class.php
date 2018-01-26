@@ -1,6 +1,7 @@
 <?php
 
 require_once("Logger.class.php");
+require_once("TheTVDBApi.class.php");
 
 /**
  * Class TVShowFetch
@@ -63,6 +64,11 @@ class TVShowFetch {
 	protected $networks = null;
 
 	/**
+	 * @var null
+	 */
+	protected $tvdb_api = null;
+
+	/**
 	 * @param array $params
 	 */
 	public function __construct($params = array()) {
@@ -81,6 +87,10 @@ class TVShowFetch {
 
 		if ($this->logger === null) {
 			$this->logger = new Logger("{$this->log_dir}/TVShowFetch_" . date("Y-m-d") . ".log", !$this->verbose);
+		}
+
+		if($this->tvdb_api === null) {
+			$this->tvdb_api = new TheTVDBApi($params['tvdb']);
 		}
 
 		if ($this->networks !== null) {
@@ -521,6 +531,182 @@ class TVShowFetch {
 	}
 
 	/**
+	 * @param $config
+	 */
+	protected function getNickJrShows($config) {
+		$shows = $this->getActiveShows($config['shows']);
+		$count = count($shows);
+		if ($count) {
+			$base_url = "http://www.nickjr.com";
+			foreach ($shows as $i => $show_info) {
+				$num = $i + 1;
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
+				$offset = 0;
+				$more = true;
+				$tvdb_episodes = $this->tvdb_api->getSeriesEpisodes($show_info['thetvdb_id']);
+				$tvdb_episodes_data = array();
+				foreach($tvdb_episodes as $data) {
+					if($data['episodeName'] !== null) {
+						$episode_name = $this->sanitizeString($data['episodeName'], array("."));
+						$tvdb_episodes_data[strtolower($episode_name)] = array("season_number"=>$data['airedSeason'], "episode_number"=>$data['airedEpisodeNumber']);
+					}
+				}
+
+				while ($more) {
+					$show_id = $show_info['show_id'];
+
+					$show_url = "{$base_url}/data/propertyVideosStreamPage.json?apiKey=nickjr.com&urlKey={$show_id}&page=1&reverseCronStartIndex={$offset}&blockIndex=1&breakpoint=stream-large";
+					$data_file = "{$show_id}-{$offset}.json";
+
+					$contents = $this->getDataFile($show_url, $data_file);
+
+					$json = json_decode($contents, true);
+					foreach($json['stream'] as $chunk) {
+						foreach ($chunk['items'] as $item) {
+							$data = $item['data'];
+							if($data['mediaType'] != "episode" || $data['authRequired']) continue;
+							$title = $this->sanitizeString($data['title'], array("{$data['seriesTitle']}: ", "."));
+							$season_number = 0;
+							$episode_url = "{$base_url}{$data['url']}";
+							$filename = null;
+							$eps = array();
+							if(strstr($title, "/")) {
+								$titles = explode("/", $title);
+								foreach($titles as $title) {
+									if (isset($tvdb_episodes_data[strtolower($title)])) {
+										$record = $tvdb_episodes_data[strtolower($title)];
+										if($season_number === 0) {
+											$season_number = $record['season_number'];
+										} else if($season_number !== $record['season_number']) {
+											$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}'' - skipping");
+											continue 2;
+										}
+										$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+									} else {
+										$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for '{$title}' - skipping");
+										continue 2;
+									}
+								}
+							} else {
+								if (isset($tvdb_episodes_data[strtolower($title)])) {
+									$record = $tvdb_episodes_data[strtolower($title)];
+									$season_number = $record['season_number'];
+									$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+								} else {
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for {$title} - skipping");
+									continue;
+								}
+							}
+							$episode_number = implode("-", $eps);
+							$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
+							$episode_string = "S{$season}E" . implode("-E", $eps);
+							$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+							$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
+							$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
+						}
+					}
+
+					$more = $json['pagination']['moreItems'];
+					$offset += $json['pagination']['count'];
+				}
+
+				$this->processEpisodes($episode_data);
+			}
+		}
+	}
+
+	/**
+	 * @param $config
+	 */
+	protected function getDisneyJrShows($config) {
+		$shows = $this->getActiveShows($config['shows']);
+		$count = count($shows);
+		if ($count) {
+			$api_base_url = "https://api.presentation.abc.go.com";
+			$base_url = "http://watchdisneyjunior.go.com";
+			$start = 0;
+			$max = 50;
+			foreach ($shows as $i => $show_info) {
+				$sanitize_string = null;
+				if(isset($show_info['sanitize_string'])) {
+					$sanitize_string = $show_info['sanitize_string'];
+				}
+				$num = $i + 1;
+				$show_title = $show_info['show_title'];
+				$this->logger->addToLog("{$this->logger_prefix}Processing show {$num} / {$count} :: '{$show_title}'");
+				$episode_data = array("show" => $show_title, "episodes" => array());
+
+				$tvdb_episodes = $this->tvdb_api->getSeriesEpisodes($show_info['thetvdb_id']);
+				$tvdb_episodes_data = array();
+				foreach($tvdb_episodes as $data) {
+					if($data['episodeName'] !== null) {
+						$episode_name = $this->sanitizeString($data['episodeName']);
+						$tvdb_episodes_data[strtolower($episode_name)] = array("season_number"=>$data['airedSeason'], "episode_number"=>$data['airedEpisodeNumber']);
+					}
+				}
+
+				$show_id = $show_info['show_id'];
+
+				$show_url = "{$api_base_url}/api/ws/presentation/v2/module/617.json?brand=008&device=001&authlevel=0&start={$start}&size={$max}&show={$show_id}";
+				$data_file = "{$show_id}.json";
+
+				$contents = $this->getDataFile($show_url, $data_file);
+
+				$json = json_decode($contents, true);
+
+				foreach($json['tilegroup']['tiles']['tile'] as $item) {
+					if($item['accesslevel'] != 0) continue;
+					$title = $this->sanitizeString($item['video']['title'], $sanitize_string);
+					$episode_url = "{$base_url}{$item['link']['value']}";
+
+					$season_number = 0;
+
+					$filename = null;
+					$eps = array();
+					if(strstr($title, "/")) {
+						$titles = explode("/", $title);
+						foreach($titles as $title) {
+							$title = trim($title);
+							if (isset($tvdb_episodes_data[strtolower($title)])) {
+								$record = $tvdb_episodes_data[strtolower($title)];
+								if($season_number === 0) {
+									$season_number = $record['season_number'];
+								} else if($season_number !== $record['season_number']) {
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}'' - skipping");
+									continue 2;
+								}
+								$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+							} else {
+								$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for '{$title}' - skipping");
+								continue 2;
+							}
+						}
+					} else {
+						if (isset($tvdb_episodes_data[strtolower($title)])) {
+							$record = $tvdb_episodes_data[strtolower($title)];
+							$season_number = $record['season_number'];
+							$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+						} else {
+							$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for {$title} - skipping");
+							continue;
+						}
+					}
+					$episode_number = implode("-", $eps);
+					$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
+					$episode_string = "S{$season}E" . implode("-E", $eps);
+					$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+					$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
+					$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
+				}
+			}
+
+			$this->processEpisodes($episode_data);
+		}
+	}
+
+	/**
 	 * @param $contents
 	 * @return DOMDocument
 	 */
@@ -648,7 +834,7 @@ class TVShowFetch {
 			$filename = $filename_auto;
 		}
 
-		$filename = $this->sanitizeFilename($filename);
+		$filename = $this->sanitizeString($filename);
 
 		$file_info = pathinfo($filename);
 		if (!isset($file_info['extension']) && $ext !== null) {
@@ -714,11 +900,18 @@ class TVShowFetch {
 	}
 
 	/**
-	 * @param $filename
+	 * @param $string
+	 * @param array $remove
 	 * @return mixed
 	 */
-	protected function sanitizeFilename($filename) {
-		return str_replace(array("'"), "", $filename);
+	protected function sanitizeString($string, $remove = array()) {
+		if(!is_array($remove)) {
+			$remove = array($remove);
+		}
+		$remove[] = "'";
+		$remove[] = '"';
+		$remove[] = "!";
+		return trim(str_replace($remove, "", $string));
 	}
 
 	/**
