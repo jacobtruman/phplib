@@ -575,17 +575,18 @@ class TVShowFetch {
 							if(strstr($title, "/")) {
 								$titles = explode("/", $title);
 								foreach($titles as $title) {
+									$title = $this->sanitizeString($title);
 									if (isset($tvdb_episodes_data[strtolower($title)])) {
 										$record = $tvdb_episodes_data[strtolower($title)];
 										if($season_number === 0) {
 											$season_number = $record['season_number'];
 										} else if($season_number !== $record['season_number']) {
-											$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}'' - skipping");
+											$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}' - skipping");
 											continue 2;
 										}
 										$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 									} else {
-										$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for '{$title}' - skipping");
+										$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (MULTI) '{$title}' - skipping");
 										continue 2;
 									}
 								}
@@ -595,7 +596,7 @@ class TVShowFetch {
 									$season_number = $record['season_number'];
 									$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 								} else {
-									$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for {$title} - skipping");
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (SINGLE) '{$title}' - skipping");
 									continue;
 								}
 							}
@@ -669,18 +670,18 @@ class TVShowFetch {
 					if(strstr($title, "/")) {
 						$titles = explode("/", $title);
 						foreach($titles as $title) {
-							$title = trim($title);
+							$title = $this->sanitizeString($title);
 							if (isset($tvdb_episodes_data[strtolower($title)])) {
 								$record = $tvdb_episodes_data[strtolower($title)];
 								if($season_number === 0) {
 									$season_number = $record['season_number'];
 								} else if($season_number !== $record['season_number']) {
-									$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}'' - skipping");
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}' - skipping");
 									continue 2;
 								}
 								$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 							} else {
-								$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for '{$title}' - skipping");
+								$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (MILTI) '{$title}' - skipping");
 								continue 2;
 							}
 						}
@@ -690,7 +691,7 @@ class TVShowFetch {
 							$season_number = $record['season_number'];
 							$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 						} else {
-							$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for {$title} - skipping");
+							$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (SINGLE) '{$title}' - skipping");
 							continue;
 						}
 					}
@@ -1009,6 +1010,10 @@ class TVShowFetch {
 		$remove[] = "'";
 		$remove[] = '"';
 		$remove[] = "!";
+		$remove[] = ",";
+		if(stripos($string, "the ") === 0) {
+			$string = substr($string, 4);
+		}
 		return trim(str_replace($remove, "", $string));
 	}
 
