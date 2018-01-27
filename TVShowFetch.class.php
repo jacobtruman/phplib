@@ -1004,6 +1004,7 @@ class TVShowFetch {
 	 * @return mixed
 	 */
 	protected function sanitizeString($string, $remove = array()) {
+		$string = trim($string);
 		if(!is_array($remove)) {
 			$remove = array($remove);
 		}
