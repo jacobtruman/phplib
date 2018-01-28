@@ -121,6 +121,7 @@ class TVShowFetch {
 	 * @param $config
 	 */
 	public function processConfig($config) {
+		$this->latest = null;
 		if ($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
 			$this->logger->addToLog("{$this->logger_prefix}Processing network '{$config['network']}'");
 			if($this->all === null) {
