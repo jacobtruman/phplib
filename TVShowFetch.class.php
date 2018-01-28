@@ -9,9 +9,14 @@ require_once("TheTVDBApi.class.php");
 class TVShowFetch {
 
 	/**
-	 * @var bool
+	 * @var bool|null
 	 */
-	protected $latest = false;
+	protected $latest = null;
+
+	/**
+	 * @var bool|null
+	 */
+	protected $all = null;
 
 	/**
 	 * @var bool
@@ -118,6 +123,13 @@ class TVShowFetch {
 	public function processConfig($config) {
 		if ($this->networks === null || in_array(strtolower($config['network']), $this->networks)) {
 			$this->logger->addToLog("{$this->logger_prefix}Processing network '{$config['network']}'");
+			if($this->all === null) {
+				if ($this->latest === null && isset($config['latest'])) {
+					$this->latest = $config['latest'];
+				}
+			} else {
+				$this->latest = false;
+			}
 			call_user_func_array(array($this, $config['method']), array($config));
 		}
 	}
@@ -172,9 +184,22 @@ class TVShowFetch {
 						if (strstr($episode_number, ",")) {
 							$episode_numbers = explode(",", $episode_number);
 							$eps = array();
+							$first_episode_number = null;
+							$last_episode_number = null;
 							foreach ($episode_numbers as $episode_number) {
-								$eps[] = "E" . str_pad(trim($episode_number), 2, "0", STR_PAD_LEFT);
+								$this_episode_number = trim($episode_number);
+								if($first_episode_number === null) {
+									$first_episode_number = $this_episode_number;
+								}
+								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
+									continue 2;
+								}
+								$last_episode_number = $this_episode_number;
 							}
+							$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
+							$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
+
 							$episode_string = implode("-", $eps);
 							$filename = "{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02d{$episode_string}";
 						}
@@ -574,6 +599,8 @@ class TVShowFetch {
 							$eps = array();
 							if(strstr($title, "/")) {
 								$titles = explode("/", $title);
+								$first_episode_number = null;
+								$last_episode_number = null;
 								foreach($titles as $title) {
 									$title = $this->sanitizeString($title);
 									if (isset($tvdb_episodes_data[strtolower($title)])) {
@@ -584,12 +611,22 @@ class TVShowFetch {
 											$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}' - skipping");
 											continue 2;
 										}
-										$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+										$this_episode_number = trim($record['episode_number']);
+										if($first_episode_number === null) {
+											$first_episode_number = $this_episode_number;
+										}
+										if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+											$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
+											continue 2;
+										}
+										$last_episode_number = $this_episode_number;
 									} else {
 										$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (MULTI) '{$title}' - skipping");
 										continue 2;
 									}
 								}
+								$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
+								$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
 							} else {
 								if (isset($tvdb_episodes_data[strtolower($title)])) {
 									$record = $tvdb_episodes_data[strtolower($title)];
@@ -669,6 +706,8 @@ class TVShowFetch {
 					$eps = array();
 					if(strstr($title, "/")) {
 						$titles = explode("/", $title);
+						$first_episode_number = null;
+						$last_episode_number = null;
 						foreach($titles as $title) {
 							$title = $this->sanitizeString($title);
 							if (isset($tvdb_episodes_data[strtolower($title)])) {
@@ -679,12 +718,22 @@ class TVShowFetch {
 									$this->logger->addToLog("{$this->logger_prefix}ERROR: Cross-season episode '{$title}' - skipping");
 									continue 2;
 								}
-								$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
+								$this_episode_number = trim($record['episode_number']);
+								if($first_episode_number === null) {
+									$first_episode_number = $this_episode_number;
+								}
+								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
+									continue 2;
+								}
+								$last_episode_number = $this_episode_number;
 							} else {
-								$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (MILTI) '{$title}' - skipping");
+								$this->logger->addToLog("{$this->logger_prefix}ERROR: Unable to find information for episode (MULTI) '{$title}' - skipping");
 								continue 2;
 							}
 						}
+						$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
+						$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
 					} else {
 						if (isset($tvdb_episodes_data[strtolower($title)])) {
 							$record = $tvdb_episodes_data[strtolower($title)];
@@ -785,10 +834,6 @@ class TVShowFetch {
 										$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
 										$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
 									}
-									#var_dump($video['length']);
-									#var_dump($video['duration']);
-									#var_dump($video['nlvid']);
-									#var_dump($video['releaseUrl']);
 								}
 							}
 							break;
@@ -919,7 +964,9 @@ class TVShowFetch {
 	 * @param null $filename
 	 */
 	protected function processUrl($url, $filename = null) {
+		$this->logger->addToLog("{$this->logger_prefix}Filename passed in: {$filename}");
 		$filename_auto = $this->getFilename($url);
+		$this->logger->addToLog("{$this->logger_prefix}Filename discovered: {$filename}");
 		$file_info = pathinfo($filename_auto);
 		$ext = null;
 		if (isset($file_info['extension'])) {
