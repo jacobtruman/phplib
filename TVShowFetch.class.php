@@ -199,6 +199,7 @@ class TVShowFetch {
 									$first_episode_number = $this_episode_number;
 								}
 								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+									$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
 									$this->addToErrors("Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
 									continue 2;
 								}
@@ -616,6 +617,7 @@ class TVShowFetch {
 										if($season_number === 0) {
 											$season_number = $record['season_number'];
 										} else if($season_number !== $record['season_number']) {
+											$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
 											$this->addToErrors("Cross-season episode '{$title}' - skipping");
 											continue 2;
 										}
@@ -624,11 +626,13 @@ class TVShowFetch {
 											$first_episode_number = $this_episode_number;
 										}
 										if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
-											$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
+											$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
+											$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");]
 											continue 2;
 										}
 										$last_episode_number = $this_episode_number;
 									} else {
+										$this->logger_prefix = "[ {$show_title} ]";
 										$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' - skipping");
 										continue 2;
 									}
@@ -641,6 +645,7 @@ class TVShowFetch {
 									$season_number = $record['season_number'];
 									$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 								} else {
+									$this->logger_prefix = "[ {$show_title} ]";
 									$this->addToErrors("Unable to find information for episode (SINGLE) '{$title}' - skipping");
 									continue;
 								}
@@ -724,6 +729,7 @@ class TVShowFetch {
 								if($season_number === 0) {
 									$season_number = $record['season_number'];
 								} else if($season_number !== $record['season_number']) {
+									$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
 									$this->addToErrors("Cross-season episode '{$title}' - skipping");
 									continue 2;
 								}
@@ -732,11 +738,13 @@ class TVShowFetch {
 									$first_episode_number = $this_episode_number;
 								}
 								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+									$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
 									$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
 									continue 2;
 								}
 								$last_episode_number = $this_episode_number;
 							} else {
+								$this->logger_prefix = "[ {$show_title} ]";
 								$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' - skipping");
 								continue 2;
 							}
@@ -749,6 +757,7 @@ class TVShowFetch {
 							$season_number = $record['season_number'];
 							$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 						} else {
+							$this->logger_prefix = "[ {$show_title} ]";
 							$this->addToErrors("Unable to find information for episode (SINGLE) '{$title}' - skipping");
 							continue;
 						}
@@ -1028,6 +1037,7 @@ class TVShowFetch {
 		$this->logger->addToLog($cmd);
 		exec($cmd, $output, $status);
 		if ($status !== 0) {
+			$this->logger_prefix = "[ In " . __METHOD__ . " ]";
 			$this->addToErrors("the command '{$cmd}' exited with code '{$status}': {$output}");
 		} else {
 			$filename = $output[0];
@@ -1048,6 +1058,7 @@ class TVShowFetch {
 			exec($cmd, $output, $status);
 		}
 		if ($status !== 0) {
+			$this->logger_prefix = "[ In " . __METHOD__ . " ]";
 			$this->addToErrors("the command '{$cmd}' exited with code '{$status}'");
 			$ret = false;
 		}
@@ -1147,6 +1158,7 @@ class TVShowFetch {
 	protected function addToErrors($error) {
 		$error = "{$this->logger_prefix}ERROR: {$error}";
 		$this->_errors[] = $error;
+		$this->logger_prefix = null;
 	}
 
 	/**
