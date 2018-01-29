@@ -79,6 +79,11 @@ class TVShowFetch {
 	private $_errors = array();
 
 	/**
+	 * @var array
+	 */
+	private $_downloaded = array();
+
+	/**
 	 * @param array $params
 	 */
 	public function __construct($params = array()) {
@@ -1020,6 +1025,7 @@ class TVShowFetch {
 			if ($this->execute) {
 				if ($this->runCommand($cmd)) {
 					$this->convert($filename, $new_filename);
+					$this->addToDownloaded($new_filename);
 				}
 			} else {
 				$this->logger->addToLog("{$this->logger_prefix}NOT EXECUTING COMMAND: {$cmd}");
@@ -1158,13 +1164,23 @@ class TVShowFetch {
 	protected function addToErrors($error) {
 		$error = "{$this->logger_prefix}ERROR: {$error}";
 		$this->_errors[] = $error;
+		$this->logger->addToLog($error);
 		$this->logger_prefix = null;
+	}
+
+	/**
+	 * @param $msg
+	 */
+	protected function addToDownloaded($msg) {
+		$this->_downloaded[] = $msg;
+		$this->logger->addToLog($msg);
 	}
 
 	/**
 	 *
 	 */
 	public function getSummary() {
+		$this->logger->addToLog(PHP_EOL . "### Execution Summary ###" . PHP_EOL);
 		if(count($this->_errors) > 0) {
 			$this->logger->addToLog(count($this->_errors) . " errors encountered during execution");
 			foreach($this->_errors as $error) {
@@ -1178,5 +1194,6 @@ class TVShowFetch {
 	 */
 	public function shutdownHandler() {
 		$this->cleanup();
+		$this->getSummary();
 	}
 }
