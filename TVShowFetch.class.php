@@ -1180,7 +1180,7 @@ class TVShowFetch {
 	 *
 	 */
 	public function getSummary() {
-		$this->logger->addToLog(PHP_EOL . "### Execution Summary ###" . PHP_EOL);
+		$this->logger->addToLog("\t### Execution Summary ###" . PHP_EOL);
 		if(count($this->_errors) > 0) {
 			$this->logger->addToLog(count($this->_errors) . " errors encountered during execution");
 			foreach($this->_errors as $error) {
