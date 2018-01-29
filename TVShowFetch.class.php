@@ -112,8 +112,6 @@ class TVShowFetch {
 		}
 
 		$this->cleanup();
-
-		$this->getSummary();
 	}
 
 	protected function fixFilePaths() {
@@ -1149,13 +1147,12 @@ class TVShowFetch {
 	protected function addToErrors($error) {
 		$error = "{$this->logger_prefix}ERROR: {$error}";
 		$this->_errors[] = $error;
-		//$this->logger->addToLog($error);
 	}
 
 	/**
 	 *
 	 */
-	protected function getSummary() {
+	public function getSummary() {
 		if(count($this->_errors) > 0) {
 			$this->logger->addToLog(count($this->_errors) . " errors encountered during execution");
 			foreach($this->_errors as $error) {
