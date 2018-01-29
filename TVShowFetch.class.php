@@ -1162,7 +1162,7 @@ class TVShowFetch {
 	 * @param $error
 	 */
 	protected function addToErrors($error) {
-		$error = "{$this->logger_prefix}ERROR: {$error}";
+		$error = "[ ERROR ] {$this->logger_prefix} {$error}";
 		$this->_errors[] = $error;
 		$this->logger->addToLog($error);
 		$this->logger_prefix = null;
