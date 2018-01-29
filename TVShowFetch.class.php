@@ -600,6 +600,7 @@ class TVShowFetch {
 							$filename = null;
 							$eps = array();
 							if(strstr($title, "/")) {
+								$full_title = $title;
 								$titles = explode("/", $title);
 								$first_episode_number = null;
 								$last_episode_number = null;
@@ -618,7 +619,7 @@ class TVShowFetch {
 											$first_episode_number = $this_episode_number;
 										}
 										if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
-											$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
+											$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
 											continue 2;
 										}
 										$last_episode_number = $this_episode_number;
@@ -707,6 +708,7 @@ class TVShowFetch {
 					$filename = null;
 					$eps = array();
 					if(strstr($title, "/")) {
+						$full_title = $title;
 						$titles = explode("/", $title);
 						$first_episode_number = null;
 						$last_episode_number = null;
@@ -725,7 +727,7 @@ class TVShowFetch {
 									$first_episode_number = $this_episode_number;
 								}
 								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
-									$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$last_episode_number} - {$this_episode_number}) - skipping");
+									$this->logger->addToLog("{$this->logger_prefix}ERROR: Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
 									continue 2;
 								}
 								$last_episode_number = $this_episode_number;
