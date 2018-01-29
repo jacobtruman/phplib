@@ -1066,6 +1066,9 @@ class TVShowFetch {
 		if(stripos($string, "the ") === 0) {
 			$string = substr($string, 4);
 		}
+		if(strstr($string, " & ")) {
+			$string = str_replace(" & ", " and ", $string);
+		}
 		return trim(str_replace($remove, "", $string));
 	}
 
