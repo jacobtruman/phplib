@@ -1040,7 +1040,7 @@ class TVShowFetch {
 	protected function getFilename($url) {
 		$filename = false;
 		$cmd = $this->getFetchCommand() . " --get-filename {$url}";
-		$this->logger->addToLog($cmd);
+		$this->logger->addToLog($this->logger_prefix . $cmd);
 		exec($cmd, $output, $status);
 		if ($status !== 0) {
 			$this->logger_prefix = "[ In " . __METHOD__ . " ]";
@@ -1057,7 +1057,7 @@ class TVShowFetch {
 	 */
 	protected function runCommand($cmd) {
 		$ret = true;
-		$this->logger->addToLog($cmd);
+		$this->logger->addToLog($this->logger_prefix . $cmd);
 		if ($this->verbose) {
 			system($cmd, $status);
 		} else {
