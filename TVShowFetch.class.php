@@ -627,7 +627,7 @@ class TVShowFetch {
 										}
 										if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
 											$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
-											$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");]
+											$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
 											continue 2;
 										}
 										$last_episode_number = $this_episode_number;
