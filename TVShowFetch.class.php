@@ -966,7 +966,7 @@ class TVShowFetch {
 				foreach ($episodes as $season_num => $episode_list) {
 					// sort by episode number
 					ksort($episode_list);
-					$this->logger_prefix = "\t[ {$show_title} ]";
+					$this->logger_prefix = "\t[ {$show_title} ][ Season {$season_num} ]";
 					$this->logger->addToLog("{$this->getLoggerPrefix()}Processing " . count($episode_list) . " episodes");
 					foreach ($episode_list as $episode_num => $episode) {
 						$this->logger_prefix = "\t[ {$show_title} ][ Season {$season_num} ][ Episode {$episode_num} ]";
