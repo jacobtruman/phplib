@@ -83,11 +83,17 @@ class TVShowFetch {
 	 */
 	private $_downloaded = array();
 
+	private $_ffmpeg = null;
+
 	/**
 	 * @param array $params
 	 */
 	public function __construct($params = array()) {
 		register_shutdown_function(array($this, 'shutdownHandler'));
+
+		if($this->_ffmpeg === null) {
+			$this->_ffmpeg = trim(`which ffmpeg`);
+		}
 
 		foreach ($params as $param => $value) {
 			if (property_exists($this, $param)) {
@@ -1130,7 +1136,7 @@ class TVShowFetch {
 			$new_filename = str_replace($ext, "NEW.mp4", $filename);
 			$rename = true;
 		}
-		$cmd = "ffmpeg -i '{$filename}' -c:v libx264 '{$new_filename}'";
+		$cmd = "{$this->_ffmpeg} -i '{$filename}' -c:v libx264 '{$new_filename}'";
 		if ($this->runCommand($cmd)) {
 			$this->logger->addToLog("{$this->getLoggerPrefix()}Deleting source file '{$filename}'");
 			unlink($filename);
