@@ -644,7 +644,7 @@ class TVShowFetch {
 										$last_episode_number = $this_episode_number;
 									} else {
 										$this->logger_prefix = "[ {$show_title} ]";
-										$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' - skipping");
+										$this->addToErrors("Unable to find information for episode (MULTI) '{$full_title}' - skipping");
 										continue 2;
 									}
 								}
@@ -756,7 +756,7 @@ class TVShowFetch {
 								$last_episode_number = $this_episode_number;
 							} else {
 								$this->logger_prefix = "[ {$show_title} ]";
-								$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' - skipping");
+								$this->addToErrors("Unable to find information for episode (MULTI) '{$full_title}' - skipping");
 								continue 2;
 							}
 						}
