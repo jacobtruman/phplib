@@ -814,8 +814,6 @@ class TVShowFetch {
 				$max_page = 0;
 				$done = false;
 
-				$seasons = array();
-
 				while(!$done) {
 					$url = "{$base_url}/shows/{$show_id}/videos/p/{$page}";
 
@@ -991,22 +989,28 @@ class TVShowFetch {
 	/**
 	 * @param $url
 	 * @param null $filename
+	 * @return bool
 	 */
 	protected function processUrl($url, $filename = null) {
 		$this->logger->addToLog("{$this->getLoggerPrefix()}Filename passed in: {$filename}");
 		$filename_auto = $this->getFilename($url);
-		$this->logger->addToLog("{$this->getLoggerPrefix()}Filename discovered: {$filename}");
-		$file_info = pathinfo($filename_auto);
-		$ext = null;
-		if (isset($file_info['extension'])) {
-			$ext = ".{$file_info['extension']}";
+		if($filename_auto) {
+			$this->logger->addToLog("{$this->getLoggerPrefix()}Filename discovered: {$filename_auto}");
+			$file_info = pathinfo($filename_auto);
+			$ext = null;
+			if (isset($file_info['extension'])) {
+				$ext = ".{$file_info['extension']}";
+			}
 		}
 
 		$cmd = $this->getFetchCommand();
 		if (!empty($filename)) {
 			$cmd .= " -o '{$filename}.%(ext)s'";
-		} else {
+		} else if($filename_auto) {
 			$filename = $filename_auto;
+		} else {
+			$this->addToErrors("Unable to process url: {$url}");
+			return false;
 		}
 
 		$filename = $this->sanitizeString($filename);
@@ -1037,6 +1041,7 @@ class TVShowFetch {
 				$this->logger->addToLog("{$this->getLoggerPrefix()}NOT EXECUTING COMMAND: {$cmd}");
 			}
 		}
+		return true;
 	}
 
 	/**
@@ -1126,25 +1131,29 @@ class TVShowFetch {
 	 * @param $new_filename
 	 */
 	protected function convert($filename, $new_filename) {
-		$rename = false;
-		$file_info = pathinfo($filename);
-		$ext = ".mp4";
-		if (isset($file_info['extension'])) {
-			$ext = ".{$file_info['extension']}";
-		}
-		if ($new_filename === null || $ext === ".mp4") {
-			$new_filename = str_replace($ext, "NEW.mp4", $filename);
-			$rename = true;
-		}
-		$cmd = "{$this->_ffmpeg} -i '{$filename}' -c:v libx264 '{$new_filename}'";
-		if ($this->runCommand($cmd)) {
-			$this->logger->addToLog("{$this->getLoggerPrefix()}Deleting source file '{$filename}'");
-			unlink($filename);
-			if ($rename) {
-				rename($new_filename, $filename);
+		if(!empty($filename) || !empty($new_filename)) {
+			$rename = false;
+			$file_info = pathinfo($filename);
+			$ext = ".mp4";
+			if (isset($file_info['extension'])) {
+				$ext = ".{$file_info['extension']}";
+			}
+			if ($new_filename === null || $ext === ".mp4") {
+				$new_filename = str_replace($ext, "NEW.mp4", $filename);
+				$rename = true;
+			}
+			$cmd = "{$this->_ffmpeg} -i '{$filename}' -c:v libx264 '{$new_filename}'";
+			if ($this->runCommand($cmd)) {
+				$this->logger->addToLog("{$this->getLoggerPrefix()}Deleting source file '{$filename}'");
+				unlink($filename);
+				if ($rename) {
+					rename($new_filename, $filename);
+				}
+			} else {
+				$this->logger->addToLog("{$this->getLoggerPrefix()}Conversion failed; keeping source file '{$filename}'");
 			}
 		} else {
-			$this->logger->addToLog("{$this->getLoggerPrefix()}Conversion failed; keeping source file '{$filename}'");
+			$this->addToErrors("Filename(s) cannot be empty");
 		}
 	}
 
@@ -1197,8 +1206,16 @@ class TVShowFetch {
 	 */
 	public function getSummary() {
 		$this->logger->addToLog("\t### Execution Summary ###" . PHP_EOL);
+
+		if(count($this->_downloaded) > 0) {
+			$this->logger->addToLog("[+] " . count($this->_downloaded) . " episodes downloaded");
+			foreach($this->_downloaded as $downloaded) {
+				$this->logger->addToLog($downloaded);
+			}
+		}
+
 		if(count($this->_errors) > 0) {
-			$this->logger->addToLog(count($this->_errors) . " errors encountered during execution");
+			$this->logger->addToLog("[-] " . count($this->_errors) . " errors encountered during execution");
 			foreach($this->_errors as $error) {
 				$this->logger->addToLog($error);
 			}
