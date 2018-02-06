@@ -1035,7 +1035,12 @@ class TVShowFetch {
 			if ($this->execute) {
 				if ($this->runCommand($cmd)) {
 					$this->convert($filename, $new_filename);
-					$this->addToDownloaded($new_filename);
+					if($new_filename !== null) {
+						$downloaded = $new_filename;
+					} else {
+						$downloaded = $filename;
+					}
+					$this->addToDownloaded($downloaded);
 				}
 			} else {
 				$this->logger->addToLog("{$this->getLoggerPrefix()}NOT EXECUTING COMMAND: {$cmd}");
