@@ -1101,7 +1101,9 @@ class TVShowFetch {
 			$to_remove = array();
 			foreach($remove as $entry) {
 				if(is_array($entry)) {
-					$to_replace[] = $entry;
+					foreach ($entry as $search => $replace) {
+						$to_replace[$search] = $replace;
+					}
 				} else {
 					$to_remove[] = $entry;
 				}
@@ -1118,7 +1120,7 @@ class TVShowFetch {
 		}
 		// replace custom replacements
 		foreach($to_replace as $search=>$replace) {
-			if(strstr($string, $search)) {
+			if(stristr($string, $search)) {
 				$string = str_ireplace($search, $replace, $string);
 			}
 		}
