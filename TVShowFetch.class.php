@@ -644,7 +644,7 @@ class TVShowFetch {
 										$last_episode_number = $this_episode_number;
 									} else {
 										$this->logger_prefix = "[ {$show_title} ]";
-										$this->addToErrors("Unable to find information for episode (MULTI) '{$full_title}' - skipping");
+										$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' of '{$full_title}' - skipping");
 										continue 2;
 									}
 								}
@@ -756,7 +756,7 @@ class TVShowFetch {
 								$last_episode_number = $this_episode_number;
 							} else {
 								$this->logger_prefix = "[ {$show_title} ]";
-								$this->addToErrors("Unable to find information for episode (MULTI) '{$full_title}' - skipping");
+								$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' of '{$full_title}' - skipping");
 								continue 2;
 							}
 						}
@@ -1119,11 +1119,11 @@ class TVShowFetch {
 		// replace custom replacements
 		foreach($to_replace as $search=>$replace) {
 			if(strstr($string, $search)) {
-				$string = str_replace($search, $replace, $string);
+				$string = str_ireplace($search, $replace, $string);
 			}
 		}
 		// remove other strings
-		return trim(str_replace($remove, "", $string));
+		return trim(str_ireplace($remove, "", $string));
 	}
 
 	/**
