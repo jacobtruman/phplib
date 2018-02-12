@@ -721,7 +721,7 @@ class TVShowFetch {
 				$this->logger->addToLog("{$this->getLoggerPrefix()}" . count($json['tilegroup']['tiles']['tile']) . " items found");
 				foreach($json['tilegroup']['tiles']['tile'] as $item) {
 					if($item['accesslevel'] != 0) continue;
-					$title = $this->sanitizeString($item['video']['title'], $sanitize_string);
+					$title = $this->sanitizeString($item['video']['title'], array($sanitize_string));
 					$episode_url = "{$base_url}{$item['link']['value']}";
 
 					$season_number = 0;
@@ -1094,19 +1094,35 @@ class TVShowFetch {
 	 */
 	protected function sanitizeString($string, $remove = array()) {
 		$string = trim($string);
+		$to_replace = array(" & "=>" and ");
 		if(!is_array($remove)) {
 			$remove = array($remove);
+		} else {
+			$to_remove = array();
+			foreach($remove as $entry) {
+				if(is_array($entry)) {
+					$to_replace[] = $entry;
+				} else {
+					$to_remove[] = $entry;
+				}
+			}
+			$remove = $to_remove;
 		}
 		$remove[] = "'";
 		$remove[] = '"';
 		$remove[] = "!";
 		$remove[] = ",";
+		// strip off leading "the "
 		if(stripos($string, "the ") === 0) {
 			$string = substr($string, 4);
 		}
-		if(strstr($string, " & ")) {
-			$string = str_replace(" & ", " and ", $string);
+		// replace custom replacements
+		foreach($to_replace as $search=>$replace) {
+			if(strstr($string, $search)) {
+				$string = str_replace($search, $replace, $string);
+			}
 		}
+		// remove other strings
 		return trim(str_replace($remove, "", $string));
 	}
 
