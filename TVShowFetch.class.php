@@ -349,8 +349,15 @@ class TVShowFetch {
 					if ($episode_info['type'] == "Full") {
 						$season_number = $episode_info['season'];
 						$episode_number = $episode_info['episode'];
+
+						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
+						$episode = str_pad($episode_number, 2, "0", STR_PAD_LEFT);
+						$episode_string = "S{$season}E{$episode}";
+
+						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+
 						$episode_data['episodes'][$season_number][$episode_number]['url'] = "http://www.cwtv.com/shows/{$show_id}/?play={$episode_id}";
-						$episode_data['episodes'][$season_number][$episode_number]['filename'] = null;
+						$episode_data['episodes'][$season_number][$episode_number]['filename'] = $filename;
 					}
 				}
 				$this->processEpisodes($episode_data);
