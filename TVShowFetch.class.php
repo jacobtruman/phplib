@@ -651,6 +651,7 @@ class TVShowFetch {
 								$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
 								$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
 							} else {
+								$title = $this->sanitizeString($title);
 								if (isset($tvdb_episodes_data[strtolower($title)])) {
 									$record = $tvdb_episodes_data[strtolower($title)];
 									$season_number = $record['season_number'];
@@ -763,6 +764,7 @@ class TVShowFetch {
 						$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
 						$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
 					} else {
+						$title = $this->sanitizeString($title);
 						if (isset($tvdb_episodes_data[strtolower($title)])) {
 							$record = $tvdb_episodes_data[strtolower($title)];
 							$season_number = $record['season_number'];
