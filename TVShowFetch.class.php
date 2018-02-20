@@ -1127,6 +1127,10 @@ class TVShowFetch {
 		if(stripos($string, "the ") === 0) {
 			$string = substr($string, 4);
 		}
+		// strip off leading "the "
+		if(stripos($string, "a ") === 0) {
+			$string = substr($string, 2);
+		}
 		// replace custom replacements
 		foreach($to_replace as $search=>$replace) {
 			if(stristr($string, $search)) {
