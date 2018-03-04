@@ -166,7 +166,7 @@ class TVShowFetch {
 		$shows = $this->getActiveShows($config['shows']);
 		$count = count($shows);
 		if ($count) {
-			$base_url = "http://www.cbs.com";
+			$base_url = "https://www.cbs.com";
 			$limit = 100;
 			foreach ($shows as $i => $show_info) {
 				$num = $i + 1;
@@ -193,7 +193,10 @@ class TVShowFetch {
 						$total = $json['result']['total'];
 					}
 					$offset += $limit;
-
+					if(!isset($json['result']['data'])) {
+						$this->addToErrors("ERROR: Something went wrong with {$show_title}");
+						break;
+					}
 					foreach ($json['result']['data'] as $record) {
 						$filename = null;
 						$season_number = $record['season_number'];
@@ -944,9 +947,16 @@ class TVShowFetch {
 				curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 			}
 			$output = curl_exec($ch);
-			curl_close($ch);
+			$info = curl_getinfo($ch);
 
-			file_put_contents($file, $output);
+			if($info['http_code'] !== 200) {
+				$this->addToErrors("ERROR: curl failed with httpd code '{$info['http_code']}'");
+			}
+
+			curl_close($ch);
+			if(!empty($output)) {
+				file_put_contents($file, $output);
+			}
 		}
 
 		return file_get_contents($file);
