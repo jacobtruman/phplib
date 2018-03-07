@@ -950,7 +950,7 @@ class TVShowFetch {
 			$info = curl_getinfo($ch);
 
 			if($info['http_code'] !== 200) {
-				$this->addToErrors("ERROR: curl failed with httpd code '{$info['http_code']}'");
+				$this->addToErrors("ERROR: curl failed with http code '{$info['http_code']}': $url");
 			}
 
 			curl_close($ch);
