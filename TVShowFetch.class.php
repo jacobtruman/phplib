@@ -729,70 +729,73 @@ class TVShowFetch {
 
 				$json = json_decode($contents, true);
 
-				$this->logger->addToLog("{$this->getLoggerPrefix()}" . count($json['tilegroup']['tiles']['tile']) . " items found");
-				foreach($json['tilegroup']['tiles']['tile'] as $item) {
-					if($item['accesslevel'] != 0) continue;
-					$title = $this->sanitizeString($item['video']['title'], array($sanitize_string));
-					$episode_url = "{$base_url}{$item['link']['value']}";
+				$tile_count = count($json['tilegroup']['tiles']['tile']);
+				$this->logger->addToLog("{$this->getLoggerPrefix()} {$tile_count} items found");
+				if($tile_count > 0) {
+					foreach ($json['tilegroup']['tiles']['tile'] as $item) {
+						if ($item['accesslevel'] != 0) continue;
+						$title = $this->sanitizeString($item['video']['title'], array($sanitize_string));
+						$episode_url = "{$base_url}{$item['link']['value']}";
 
-					$season_number = 0;
+						$season_number = 0;
 
-					$filename = null;
-					$eps = array();
-					if(strstr($title, "/")) {
-						$full_title = $title;
-						$titles = explode("/", $title);
-						$first_episode_number = null;
-						$last_episode_number = null;
-						foreach($titles as $title) {
+						$filename = null;
+						$eps = array();
+						if (strstr($title, "/")) {
+							$full_title = $title;
+							$titles = explode("/", $title);
+							$first_episode_number = null;
+							$last_episode_number = null;
+							foreach ($titles as $title) {
+								$title = $this->sanitizeString($title);
+								if (isset($tvdb_episodes_data[strtolower($title)])) {
+									$record = $tvdb_episodes_data[strtolower($title)];
+									if ($season_number === 0) {
+										$season_number = $record['season_number'];
+									} else if ($season_number !== $record['season_number']) {
+										$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
+										$this->addToErrors("Cross-season episode '{$title}' - skipping");
+										continue 2;
+									}
+									$this_episode_number = trim($record['episode_number']);
+									if ($first_episode_number === null) {
+										$first_episode_number = $this_episode_number;
+									}
+									if ($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
+										$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
+										$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
+										continue 2;
+									}
+									$last_episode_number = $this_episode_number;
+								} else {
+									$this->logger_prefix = "[ {$show_title} ]";
+									$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' of '{$full_title}' - skipping");
+									continue 2;
+								}
+							}
+							$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
+							$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
+						} else {
 							$title = $this->sanitizeString($title);
 							if (isset($tvdb_episodes_data[strtolower($title)])) {
 								$record = $tvdb_episodes_data[strtolower($title)];
-								if($season_number === 0) {
-									$season_number = $record['season_number'];
-								} else if($season_number !== $record['season_number']) {
-									$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
-									$this->addToErrors("Cross-season episode '{$title}' - skipping");
-									continue 2;
-								}
-								$this_episode_number = trim($record['episode_number']);
-								if($first_episode_number === null) {
-									$first_episode_number = $this_episode_number;
-								}
-								if($last_episode_number !== null && ($this_episode_number - $last_episode_number) !== 1) {
-									$this->logger_prefix = "[ {$show_title} ][ {$season_number} ]";
-									$this->addToErrors("Non-sequential episodes ({$full_title}) ({$last_episode_number} - {$this_episode_number}) - skipping");
-									continue 2;
-								}
-								$last_episode_number = $this_episode_number;
+								$season_number = $record['season_number'];
+								$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
 							} else {
 								$this->logger_prefix = "[ {$show_title} ]";
-								$this->addToErrors("Unable to find information for episode (MULTI) '{$title}' of '{$full_title}' - skipping");
-								continue 2;
+								$this->addToErrors("Unable to find information for episode (SINGLE) '{$title}' - skipping");
+								continue;
 							}
 						}
-						$eps[] = str_pad($first_episode_number, 2, "0", STR_PAD_LEFT);
-						$eps[] = str_pad($last_episode_number, 2, "0", STR_PAD_LEFT);
-					} else {
-						$title = $this->sanitizeString($title);
-						if (isset($tvdb_episodes_data[strtolower($title)])) {
-							$record = $tvdb_episodes_data[strtolower($title)];
-							$season_number = $record['season_number'];
-							$eps[] = str_pad(trim($record['episode_number']), 2, "0", STR_PAD_LEFT);
-						} else {
-							$this->logger_prefix = "[ {$show_title} ]";
-							$this->addToErrors("Unable to find information for episode (SINGLE) '{$title}' - skipping");
-							continue;
-						}
+						$episode_number = implode("-", $eps);
+						$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
+						$episode_string = "S{$season}E" . implode("-E", $eps);
+						$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
+						$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
+						$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
 					}
-					$episode_number = implode("-", $eps);
-					$season = str_pad($season_number, 2, "0", STR_PAD_LEFT);
-					$episode_string = "S{$season}E" . implode("-E", $eps);
-					$filename = "{$this->base_dir}/{$show_info['show_title']}/Season {$season_number}/{$show_info['show_title']} - {$episode_string}";
-					$episode_data['episodes'][$season_number][$episode_number]["url"] = $episode_url;
-					$episode_data['episodes'][$season_number][$episode_number]["filename"] = $filename;
+					$this->processEpisodes($episode_data);
 				}
-				$this->processEpisodes($episode_data);
 			}
 		}
 	}
