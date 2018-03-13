@@ -84,6 +84,7 @@ class TVShowFetch {
 	private $_downloaded = array();
 
 	private $_ffmpeg = null;
+	private $_youtubedl = null;
 
 	/**
 	 * @param array $params
@@ -93,6 +94,10 @@ class TVShowFetch {
 
 		if($this->_ffmpeg === null) {
 			$this->_ffmpeg = trim(`which ffmpeg`);
+		}
+
+		if($this->_youtubedl === null) {
+			$this->_youtubedl = trim(`which youtube-dl`);
 		}
 
 		foreach ($params as $param => $value) {
@@ -156,7 +161,7 @@ class TVShowFetch {
 	 * @return string
 	 */
 	protected function getFetchCommand() {
-		return "youtube-dl --no-mtime --audio-quality 0 --no-check-certificate -o '{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02dE%(episode_number)02d.%(ext)s'";
+		return "{$this->_youtubedl} --no-mtime --audio-quality 0 --no-check-certificate -o '{$this->base_dir}/%(series)s/Season %(season_number)s/%(series)s - S%(season_number)02dE%(episode_number)02d.%(ext)s'";
 	}
 
 	/**
